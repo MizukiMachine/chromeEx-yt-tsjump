@@ -57,3 +57,6 @@ coverage/
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# progress
+TODO.md
