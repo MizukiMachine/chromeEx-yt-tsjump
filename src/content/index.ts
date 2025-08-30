@@ -4,6 +4,7 @@
  * 役割 動画制御 UI表示 ユーザー操作処理
  */
 import { observeVideo, type VideoObserverHandle } from './dom/video';
+import { handleSeekCommand } from './handlers/commands';
 
 console.log('[Content] YouTube Long Seek & Timestamp Jump loaded');
 
@@ -120,19 +121,18 @@ function handleCommand(command: string) {
   
   console.log('[Content] Handling command:', command);
   
-  // TODO: 実際のシーク処理を実装
   switch (command) {
     case 'seek-backward-60':
-      console.log('TODO: Seek -60 minutes');
+      handleSeekCommand(video, 'seek-backward-60');
       break;
     case 'seek-backward-10':
-      console.log('TODO: Seek -10 minutes');
+      handleSeekCommand(video, 'seek-backward-10');
       break;
     case 'seek-forward-60':
-      console.log('TODO: Seek +60 minutes');
+      handleSeekCommand(video, 'seek-forward-60');
       break;
     case 'seek-forward-10':
-      console.log('TODO: Seek +10 minutes');
+      handleSeekCommand(video, 'seek-forward-10');
       break;
     // ジャンプカードとデバッグパネルはUI経由で操作
   }
