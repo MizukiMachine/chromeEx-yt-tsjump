@@ -10,9 +10,9 @@ export default defineConfig({
     webExtension({
       manifest: () => ({
         manifest_version: 3,
-        name: 'YouTube Long Seek & Timezone Jump',
+        name: 'YouTube Long Seek & Timestamp Jump',
         version: '1.0.0',
-        description: 'Enhanced YouTube controls with long seek and timezone-aware time jumping',
+        description: 'Enhanced YouTube controls with long seek and timestamp-aware time jumping',
         
         // 権限設定
         permissions: [
@@ -48,43 +48,31 @@ export default defineConfig({
           }
         ],
         
-        // キーボードショートカット
+        // キーボードショートカット（Alt+Q/A/W/S を正式仕様とする）
         commands: {
           'seek-backward-60': {
             suggested_key: {
-              default: 'Alt+Shift+Q'
+              default: 'Alt+Q'
             },
             description: 'Seek backward 60 minutes'
           },
           'seek-backward-10': {
             suggested_key: {
-              default: 'Alt+Shift+A'
+              default: 'Alt+A'
             },
             description: 'Seek backward 10 minutes'
           },
           'seek-forward-60': {
             suggested_key: {
-              default: 'Alt+Shift+W'
+              default: 'Alt+W'
             },
             description: 'Seek forward 60 minutes'
           },
           'seek-forward-10': {
             suggested_key: {
-              default: 'Alt+Shift+S'
+              default: 'Alt+S'
             },
             description: 'Seek forward 10 minutes'
-          },
-          'toggle-jump-card': {
-            suggested_key: {
-              default: 'Alt+Shift+J'
-            },
-            description: 'Toggle jump card'
-          },
-          'toggle-debug-panel': {
-            suggested_key: {
-              default: 'Alt+Shift+D'
-            },
-            description: 'Toggle debug panel'
           }
         },
         
@@ -108,12 +96,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV === 'development',
-    rollupOptions: {
-      input: {
-        // オプションページ（将来用）
-        // options: resolve(__dirname, 'options.html'),
-      }
-    }
+    // rollupOptionsは削除（web-extensionプラグインが自動処理）
   },
   
   // テストモード時の設定

@@ -1,7 +1,7 @@
 {
-  "name": "yt-longseek-tzjump",
+  "name": "yt-longseek-tsjump",
   "version": "1.0.0",
-  "description": "YouTube Long Seek & Timezone Jump Chrome Extension",
+  "description": "YouTube Long Seek & Timestamp Jump Chrome Extension",
   "type": "module",
   "scripts": {
     "dev": "vite",
