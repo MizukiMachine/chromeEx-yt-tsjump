@@ -13,10 +13,11 @@ function makeVideoWithEnd(end: number): HTMLVideoElement {
 }
 
 describe('computeMedianMad', () => {
-  it('中央値とMADを返す', () => {
+  it('中央値2とMAD1を返す', () => {
     const { median, mad } = computeMedianMad([1, 2, 2, 3, 100]);
     expect(median).toBe(2);
-    expect(mad).toBe(0);
+    // 偏差は [1,0,0,1,98] → 中央は1
+    expect(mad).toBe(1);
   });
 });
 
@@ -43,4 +44,3 @@ describe('startCalibration', () => {
     expect(typeof getC()).toBe('number');
   });
 });
-
