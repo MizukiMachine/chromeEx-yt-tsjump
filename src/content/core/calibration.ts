@@ -88,7 +88,7 @@ export function startCalibration(video: HTMLVideoElement): void {
         const Ci = epochSec - end;
         state.samples.push(Ci);
         // 緩い外れ値除去 median±0.75 を採用
-        const { median, mad } = computeMedianMad(state.samples);
+        const { median } = computeMedianMad(state.samples);
         const filtered = state.samples.filter((c) => Math.abs(c - median) <= 0.75);
         const center = computeMedianMad(filtered);
         state.median = center.median;
@@ -128,4 +128,3 @@ export function stopCalibration(): void {
 export function getC(): number | null {
   return state.C;
 }
-
