@@ -4,6 +4,7 @@
  */
 
 export const GUARD_SEC = 3;
+export const EDGE_BACKOFF_SEC = 0.75; // live edge直前での安全余白
 
 /**
  * seekable の開始位置を返す
@@ -13,6 +14,7 @@ export function getSeekableStart(video: HTMLVideoElement): number {
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
+      // 最も古い範囲の開始
       const s = r.start(0);
       return Number.isFinite(s) ? s : 0;
     } catch {
@@ -30,7 +32,9 @@ export function getSeekableEnd(video: HTMLVideoElement): number {
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
-      const e = r.end(0);
+      // 最も新しい範囲の終端
+      const idx = r.length - 1;
+      const e = r.end(idx);
       if (Number.isFinite(e)) return e;
     } catch {
       /* no-op */
@@ -79,12 +83,52 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
   const start = getSeekableStart(video);
   const end = getSeekableEnd(video);
   const prev = video.currentTime;
-  const cr = clampToPlayable(t, start, end, GUARD_SEC);
+  let cr = clampToPlayable(t, start, end, GUARD_SEC);
+
+  // bufferedの終端も考慮し 安全な着地点に調整
+  // 端クランプ時だけでなく target がbuffered終端より先のときも手前へずらす
+  if (video.buffered && video.buffered.length > 0) {
+    try {
+      const idx = video.buffered.length - 1;
+      const bufEnd = video.buffered.end(idx);
+      if (Number.isFinite(bufEnd)) {
+        const safeMax = bufEnd - EDGE_BACKOFF_SEC;
+        const safe = Math.max(start, Math.min(cr.target, safeMax));
+        if (safe < cr.target) {
+          cr = { ...cr, target: safe };
+        }
+      }
+    } catch {
+      // buffered参照失敗は無視
+    }
+  }
   try {
-    video.currentTime = cr.target;
+    const anyVideo: any = video as any;
+    if (typeof anyVideo.fastSeek === 'function') {
+      anyVideo.fastSeek(cr.target);
+    } else {
+      video.currentTime = cr.target;
+    }
+    // 端付近で停止しがちなので軽くplayを促す
+    if (cr.reason === 'end') {
+      void video.play().catch(() => {});
+      // 短時間後にまだ停止なら再度促す
+      setTimeout(() => {
+        if (isNearLiveEdge(video) && video.paused) {
+          void video.play().catch(() => {});
+        }
+      }, 250);
+    }
   } catch {
     // 稀に範囲外で例外が出るため無視
   }
   return { ...cr, requested: t, previous: prev };
 }
 
+/**
+ * live edgeに近いかの簡易判定
+ */
+export function isNearLiveEdge(video: HTMLVideoElement, thresholdSec = 5): boolean {
+  const end = getSeekableEnd(video);
+  return end > 0 && end - video.currentTime <= thresholdSec;
+}

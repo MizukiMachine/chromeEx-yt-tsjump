@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   GUARD_SEC,
+  EDGE_BACKOFF_SEC,
   clampToPlayable,
   getSeekableStart,
   getSeekableEnd,
@@ -97,6 +98,21 @@ describe('getSeekableStart/End', () => {
     expect(getSeekableEnd(v)).toBe(200);
   });
 
+  it('uses last range end when multiple', () => {
+    const el = document.createElement('video') as HTMLVideoElement;
+    Object.defineProperty(el, 'seekable', {
+      get() {
+        return {
+          length: 2,
+          start(i: number) { if (i !== 0) throw new Error('index'); return 0; },
+          end(i: number) { return i === 0 ? 100 : 250; },
+        } as unknown as TimeRanges;
+      },
+      configurable: true,
+    });
+    expect(getSeekableEnd(el)).toBe(250);
+  });
+
   it('falls back to duration when end fails', () => {
     const v = createMockVideo({ end: 0, duration: 123, throwEnd: true });
     expect(getSeekableEnd(v)).toBe(123);
@@ -127,5 +143,24 @@ describe('seek', () => {
     expect(r.target).toBe(5);
     expect(v.currentTime).toBe(5);
   });
-});
 
+  it('lands before buffered end when target exceeds buffered', () => {
+    const el = document.createElement('video') as HTMLVideoElement;
+    Object.defineProperty(el, 'currentTime', { value: 0, writable: true, configurable: true });
+    Object.defineProperty(el, 'seekable', {
+      get() {
+        return { length: 1, start: () => 0, end: () => 120 } as unknown as TimeRanges;
+      },
+      configurable: true,
+    });
+    Object.defineProperty(el, 'buffered', {
+      get() {
+        return { length: 1, end: () => 80 } as unknown as TimeRanges;
+      },
+      configurable: true,
+    });
+    // 目標は90だが buffered終端80を越えるので 80-EDGE_BACKOFFに寄せられる
+    const r = seek(el, 90);
+    expect(r.target).toBeCloseTo(80 - EDGE_BACKOFF_SEC, 3);
+  });
+});
