@@ -5,6 +5,7 @@
  */
 import { observeVideo, type VideoObserverHandle } from './dom/video';
 import { handleSeekCommand } from './handlers/commands';
+import { startCalibration, stopCalibration } from './core/calibration';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 
 function frameTag(): string {
@@ -116,7 +117,8 @@ function setupVideoObserver() {
       );
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
-      // TODO 初期キャリブレーションの起動をここで開始
+      // 初期キャリブレーションを開始
+      startCalibration(video);
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
@@ -189,6 +191,7 @@ if (process.env.NODE_ENV === 'development') {
 // ページアンロード時の後片付け
 window.addEventListener('unload', () => {
   videoObserver?.disconnect();
+  stopCalibration();
   disposeMessageListener?.();
 });
 
