@@ -56,7 +56,6 @@ function createShadowRoot() {
   host.style.top = '0';
   host.style.left = '0';
   host.style.zIndex = '999999';  // YouTubeのUIより前面
-  host.style.pointerEvents = 'none';  // 初期状態ではクリック透過
   
   // body に追加
   document.body.appendChild(host);
@@ -72,10 +71,38 @@ function createShadowRoot() {
       }
       #container {
         position: relative;
+        pointer-events: none;
       }
+      #shortcut-help {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        background: rgba(17,17,17,.9);
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.3;
+        border-radius: 6px;
+        padding: 8px 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,.3);
+        pointer-events: auto;
+        user-select: none;
+      }
+      #shortcut-help .row { display: flex; gap: 6px; align-items: center; }
+      #shortcut-help .btn { background: #2563eb; color: #fff; border: 0; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+      #shortcut-help .btn:disabled { opacity: .6; cursor: default; }
+      #shortcut-help .close { margin-left: 6px; cursor: pointer; color: #bbb; }
+      #shortcut-help small { color: #bbb; }
     </style>
     <div id="container">
       <!-- UI components will be inserted here -->
+      <div id="shortcut-help" style="display:none">
+        <div class="row">
+          <span>Set keyboard shortcuts in chrome://extensions/shortcuts</span>
+          <button class="btn" id="btn-open-shortcuts">Open</button>
+          <span class="close" id="btn-close-help">×</span>
+        </div>
+        <small id="help-status"></small>
+      </div>
     </div>
   `;
   
@@ -112,6 +139,7 @@ function setupVideoObserver() {
     currentVideo = video;
     if (video) {
       ensureShadowRoot();
+      ensureShortcutHelp();
       console.log(
         `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
       );
@@ -196,3 +224,52 @@ window.addEventListener('unload', () => {
 });
 
 export {};
+
+/**
+ * ショートカット設定ヘルプの設置とイベント
+ */
+function ensureShortcutHelp() {
+  const host = document.getElementById('yt-longseek-tsjump-root');
+  const sr = host?.shadowRoot;
+  if (!sr) return;
+  const dismissed = localStorage.getItem('shortcutsHelpDismissed') === '1';
+  const box = sr.getElementById('shortcut-help') as HTMLDivElement | null;
+  if (!box) return;
+  if (dismissed) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  const openBtn = sr.getElementById('btn-open-shortcuts') as HTMLButtonElement | null;
+  const closeBtn = sr.getElementById('btn-close-help') as HTMLSpanElement | null;
+  const status = sr.getElementById('help-status') as HTMLElement | null;
+  if (openBtn && !openBtn.onclick) {
+    openBtn.onclick = async () => {
+      openBtn.disabled = true;
+      status && (status.textContent = 'Opening...');
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'OPEN_SHORTCUTS' } as any);
+        if (res && res.opened) {
+          status && (status.textContent = 'Opened in a new tab');
+        } else {
+          throw new Error('open failed');
+        }
+      } catch {
+        try {
+          await navigator.clipboard.writeText('chrome://extensions/shortcuts');
+          status && (status.textContent = 'Copied link to clipboard');
+        } catch {
+          status && (status.textContent = 'Please open chrome://extensions/shortcuts');
+        }
+      } finally {
+        openBtn.disabled = false;
+      }
+    };
+  }
+  if (closeBtn && !closeBtn.onclick) {
+    closeBtn.onclick = () => {
+      localStorage.setItem('shortcutsHelpDismissed', '1');
+      box.style.display = 'none';
+    };
+  }
+}

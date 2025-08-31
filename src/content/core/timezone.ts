@@ -53,7 +53,7 @@ export function toEpochInZone(
   const gap = instants.length === 0;
 
   // disambiguation: 'compatible' は DSTギャップで前方スナップ 曖昧はearlier
-  const zdt = pdt.toZonedDateTime({ timeZone: tz, disambiguation: 'compatible' });
+  const zdt = pdt.toZonedDateTime(tz, { disambiguation: 'compatible' });
   const epochSec = Math.floor(zdt.epochSeconds);
   const wall = zdt.toPlainDateTime().toString(); // YYYY-MM-DDTHH:mm:ss
 

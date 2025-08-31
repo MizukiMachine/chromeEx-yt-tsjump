@@ -40,6 +40,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try { sendResponse({ received: true }); } catch {}
     return true;
   }
+  if (message && message.type === 'OPEN_SHORTCUTS') {
+    const url = 'chrome://extensions/shortcuts';
+    chrome.tabs.create({ url }).then(() => {
+      try { sendResponse({ opened: true }); } catch {}
+    }).catch((err) => {
+      console.warn('[Background] Failed to open shortcuts page', err);
+      try { sendResponse({ opened: false, error: String(err) }); } catch {}
+    });
+    return true;
+  }
   return false;
 });
 
