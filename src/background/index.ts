@@ -4,6 +4,8 @@
  * 主な役割：キーボードショートカットを受け取ってコンテンツスクリプトに転送
  */
 
+import { pickFrame, updateStatus, clearTab } from './route';
+
 // キーボードショートカットのコマンドを監視
 chrome.commands.onCommand.addListener(async (command) => {
   console.log('[Background] Command received:', command);
@@ -16,14 +18,29 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
 
     try {
-      await chrome.tabs.sendMessage(tab.id, { type: 'COMMAND', command });
-      console.log('[Background] Message sent to tab', tab.id);
+      const frameId = pickFrame(tab.id);
+      const options = frameId != null ? { frameId } : undefined;
+      await chrome.tabs.sendMessage(tab.id, { type: 'COMMAND', command }, options as any);
+      console.log('[Background] Message sent to tab', { tabId: tab.id, frameId });
     } catch (err) {
       console.error('[Background] sendMessage failed', err);
     }
   } catch (e) {
     console.error('[Background] tabs.query failed', e);
   }
+});
+
+// content からのSTATUSメッセージを受信
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.type === 'STATUS') {
+    const tabId = sender.tab?.id;
+    const frameId = sender.frameId;
+    updateStatus(tabId, frameId, message.status);
+    console.log('[Background] Status received:', { status: message.status, tabId, frameId });
+    try { sendResponse({ received: true }); } catch {}
+    return true;
+  }
+  return false;
 });
 
 // 拡張機能がインストール・更新された時
@@ -41,6 +58,11 @@ chrome.runtime.onInstalled.addListener(() => {
   } catch (e) {
     console.warn('[Background] commands.getAll not available', e);
   }
+});
+
+// タブが閉じられたらルーティングを解放
+chrome.tabs.onRemoved.addListener((tabId) => {
+  clearTab(tabId);
 });
 
 // ブラウザ起動時にも確認

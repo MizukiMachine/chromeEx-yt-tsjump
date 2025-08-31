@@ -5,6 +5,7 @@
  */
 import { observeVideo, type VideoObserverHandle } from './dom/video';
 import { handleSeekCommand } from './handlers/commands';
+import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 
 function frameTag(): string {
   try {
@@ -21,6 +22,7 @@ let isInitialized = false;
 let currentVideo: HTMLVideoElement | null = null;
 let videoObserver: VideoObserverHandle | null = null;
 let hasShadowRoot = false;
+let disposeMessageListener: (() => void) | null = null;
 
 /**
  * 初期化処理
@@ -36,6 +38,9 @@ function initialize() {
   
   // バックグラウンドからのメッセージを受信
   setupMessageListener();
+
+  // ステータス送信
+  sendStatusToBackground('ready').catch(() => {});
 }
 
 /**
@@ -109,9 +114,12 @@ function setupVideoObserver() {
       console.log(
         `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
       );
+      // ステータス送信
+      sendStatusToBackground('video-found', { reason }).catch(() => {});
       // TODO 初期キャリブレーションの起動をここで開始
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
+      sendStatusToBackground('video-lost', { reason }).catch(() => {});
     }
   });
 }
@@ -121,16 +129,12 @@ function setupVideoObserver() {
  * 新しい型安全なメッセージバスを使用
  */
 function setupMessageListener() {
-  // 旧実装（フォールバック用）
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    console.log(`[Content:${frameTag()}] Message received (legacy)`, message);
-    
-    if (message.type === 'COMMAND') {
-      handleCommand(message.command);
-    }
-    
-    sendResponse({ received: true });
-    return true;  // 非同期レスポンスのため
+  // 既存の購読を解除
+  disposeMessageListener?.();
+  // ブリッジ経由で購読
+  disposeMessageListener = onCommandMessage(async (command) => {
+    console.log(`[Content:${frameTag()}] Message received`, { type: 'COMMAND', command });
+    handleCommand(command);
   });
 }
 
@@ -185,6 +189,7 @@ if (process.env.NODE_ENV === 'development') {
 // ページアンロード時の後片付け
 window.addEventListener('unload', () => {
   videoObserver?.disconnect();
+  disposeMessageListener?.();
 });
 
 export {};

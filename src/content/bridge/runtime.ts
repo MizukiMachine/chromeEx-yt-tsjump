@@ -44,8 +44,8 @@ export async function sendStatusToBackground(
       console.log(`[Bridge:${frameTag()}] Status sent to background:`, status, details);
     }
   } catch (error) {
-    // 拡張機能のコンテキストが無効な場合（リロード時など）
-    console.warn(`[Bridge:${frameTag()}] Failed to send status:`, error);
+    // 背景が未起動などで受信側なしの可能性
+    if (DEBUG) console.warn(`[Bridge:${frameTag()}] Failed to send status:`, error);
   }
 }
 
