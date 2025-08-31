@@ -16,9 +16,10 @@ export default defineConfig({
         
         // 権限設定
         permissions: [
-          'storage',     // 設定保存用
-          'scripting',   // コンテンツスクリプト注入
-          'activeTab',   // アクティブタブ操作
+          'storage',     // 設定保存
+          'scripting',   // スクリプト注入
+          'tabs',        // activeタブの取得とメッセージ送信
+          'activeTab',   // 一部の操作に必要な場合の補助
           'commands'     // キーボードショートカット
         ],
         
@@ -48,29 +49,43 @@ export default defineConfig({
           }
         ],
         
-        // キーボードショートカット（Alt+Q/A/W/S を正式仕様とする）
+        // キーボードショートカット Alt+Shift+S/D/F/G
+        // 注意 manifestのバリデータは[A-Z]のみ許容 数字は不可
+        // プラットフォーム別指定で自動設定を改善
         commands: {
           'seek-backward-60': {
             suggested_key: {
-              default: 'Alt+Q'
+              windows: 'Alt+Shift+S',
+              mac: 'Alt+Shift+S', 
+              chromeos: 'Alt+Shift+S',
+              linux: 'Alt+Shift+S'
             },
             description: 'Seek backward 60 minutes'
           },
           'seek-backward-10': {
             suggested_key: {
-              default: 'Alt+A'
+              windows: 'Alt+Shift+D',
+              mac: 'Alt+Shift+D',
+              chromeos: 'Alt+Shift+D', 
+              linux: 'Alt+Shift+D'
             },
             description: 'Seek backward 10 minutes'
           },
           'seek-forward-60': {
             suggested_key: {
-              default: 'Alt+W'
+              windows: 'Alt+Shift+G',
+              mac: 'Alt+Shift+G',
+              chromeos: 'Alt+Shift+G',
+              linux: 'Alt+Shift+G'
             },
             description: 'Seek forward 60 minutes'
           },
           'seek-forward-10': {
             suggested_key: {
-              default: 'Alt+S'
+              windows: 'Alt+Shift+F',
+              mac: 'Alt+Shift+F',
+              chromeos: 'Alt+Shift+F',
+              linux: 'Alt+Shift+F'
             },
             description: 'Seek forward 10 minutes'
           }
