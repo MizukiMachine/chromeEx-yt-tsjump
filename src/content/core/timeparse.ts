@@ -88,7 +88,7 @@ function pad2(n: number): string {
 }
 
 function toInt(s: string): number | null {
-  if (!s) return 0
+  if (!s) return null
   if (!/^\d+$/.test(s)) return null
   try {
     return parseInt(s, 10)
@@ -100,4 +100,3 @@ function toInt(s: string): number | null {
 function err(msg: string): ParseErr {
   return { ok: false, error: msg }
 }
-
