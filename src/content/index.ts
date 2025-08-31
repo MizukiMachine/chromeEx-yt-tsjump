@@ -6,12 +6,21 @@
 import { observeVideo, type VideoObserverHandle } from './dom/video';
 import { handleSeekCommand } from './handlers/commands';
 
-console.log('[Content] YouTube Long Seek & Timestamp Jump loaded');
+function frameTag(): string {
+  try {
+    return window === window.top ? 'top' : 'iframe';
+  } catch {
+    return 'iframe';
+  }
+}
+
+console.log(`[Content:${frameTag()}] YouTube Long Seek & Timestamp Jump loaded`);
 
 // 初期化フラグ（重複実行防止）
 let isInitialized = false;
 let currentVideo: HTMLVideoElement | null = null;
 let videoObserver: VideoObserverHandle | null = null;
+let hasShadowRoot = false;
 
 /**
  * 初期化処理
@@ -20,10 +29,7 @@ function initialize() {
   if (isInitialized) return;
   isInitialized = true;
   
-  console.log('[Content] Initializing...');
-  
-  // Shadow DOM のルートを作成
-  createShadowRoot();
+  console.log(`[Content:${frameTag()}] Initializing...`);
   
   // 動画要素の出現と差し替えを監視
   setupVideoObserver();
@@ -67,7 +73,26 @@ function createShadowRoot() {
     </div>
   `;
   
-  console.log('[Content] Shadow DOM created');
+  console.log(`[Content:${frameTag()}] Shadow DOM created`);
+}
+
+/**
+ * ShadowRootを一度だけ用意
+ */
+function ensureShadowRoot(): ShadowRoot | null {
+  if (hasShadowRoot) {
+    const exist = document.getElementById('yt-longseek-tsjump-root');
+    return exist && exist.shadowRoot ? exist.shadowRoot : null;
+  }
+  if (document.getElementById('yt-longseek-tsjump-root')) {
+    hasShadowRoot = true;
+    const exist = document.getElementById('yt-longseek-tsjump-root')!;
+    return exist.shadowRoot;
+  }
+  createShadowRoot();
+  hasShadowRoot = true;
+  const host = document.getElementById('yt-longseek-tsjump-root');
+  return host ? host.shadowRoot : null;
 }
 
 /**
@@ -80,25 +105,25 @@ function setupVideoObserver() {
   videoObserver = observeVideo((video, reason) => {
     currentVideo = video;
     if (video) {
-      console.log('[Content] Video ready:', {
-        reason,
-        duration: video.duration,
-        currentTime: video.currentTime,
-        readyState: video.readyState,
-      });
+      ensureShadowRoot();
+      console.log(
+        `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
+      );
       // TODO 初期キャリブレーションの起動をここで開始
     } else {
-      console.log('[Content] Video missing:', { reason });
+      console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
     }
   });
 }
 
 /**
  * バックグラウンドからのメッセージリスナー
+ * 新しい型安全なメッセージバスを使用
  */
 function setupMessageListener() {
+  // 旧実装（フォールバック用）
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    console.log('[Content] Message received:', message);
+    console.log(`[Content:${frameTag()}] Message received (legacy)`, message);
     
     if (message.type === 'COMMAND') {
       handleCommand(message.command);
@@ -119,7 +144,7 @@ function handleCommand(command: string) {
     return;
   }
   
-  console.log('[Content] Handling command:', command);
+  console.log(`[Content:${frameTag()}] Handling command ${command}`);
   
   switch (command) {
     case 'seek-backward-60':
@@ -143,6 +168,18 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initialize);
 } else {
   initialize();
+}
+
+// デバッグ用：キーボードイベントを直接監視（開発時のみ）
+if (process.env.NODE_ENV === 'development') {
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+      const key = e.key.toUpperCase();
+      if (['Q', 'A', 'W', 'S'].includes(key)) {
+        console.log(`[Content:${frameTag()}] DEBUG: Alt+${key} pressed directly`);
+      }
+    }
+  });
 }
 
 // ページアンロード時の後片付け
