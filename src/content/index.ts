@@ -6,6 +6,7 @@
 import { observeVideo, type VideoObserverHandle } from './dom/video';
 import { handleSeekCommand } from './handlers/commands';
 import { startCalibration, stopCalibration } from './core/calibration';
+import { mountCard, type CardAPI } from './ui/card';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 
 function frameTag(): string {
@@ -24,6 +25,8 @@ let currentVideo: HTMLVideoElement | null = null;
 let videoObserver: VideoObserverHandle | null = null;
 let hasShadowRoot = false;
 let disposeMessageListener: (() => void) | null = null;
+let cardApi: CardAPI | null = null;
+let numericGuardAttached = false;
 
 /**
  * 初期化処理
@@ -139,6 +142,7 @@ function setupVideoObserver() {
     currentVideo = video;
     if (video) {
       ensureShadowRoot();
+      ensureCard();
       ensureShortcutHelp();
       console.log(
         `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
@@ -172,6 +176,11 @@ function setupMessageListener() {
  * コマンドを処理
  */
 function handleCommand(command: string) {
+  // 入力中はショートカット無効化
+  if (cardApi?.isTyping && cardApi.isTyping()) {
+    console.log(`[Content:${frameTag()}] Ignored command while typing`);
+    return;
+  }
   const video = currentVideo ?? (document.querySelector('video') as HTMLVideoElement | null);
   if (!video) {
     console.warn('[Content] No video element found');
@@ -271,5 +280,44 @@ function ensureShortcutHelp() {
       localStorage.setItem('shortcutsHelpDismissed', '1');
       box.style.display = 'none';
     };
+  }
+}
+
+// Cardの設置とトグルショートカット
+function ensureCard() {
+  if (cardApi) return;
+  const host = document.getElementById('yt-longseek-tsjump-root');
+  const sr = host?.shadowRoot;
+  if (!sr) return;
+  cardApi = mountCard(sr, () => currentVideo);
+  // Alt+Shift+J で開閉
+  const onKey = (e: KeyboardEvent) => {
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.toUpperCase() === 'J') {
+      // 入力中は無視
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      cardApi?.toggle();
+    }
+  };
+  window.addEventListener('keydown', onKey);
+
+  // カード開時は数字キーの既定シークを抑止
+  if (!numericGuardAttached) {
+    const handler = (e: KeyboardEvent) => {
+      if (!cardApi?.isOpen || !cardApi.isOpen()) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName?.toLowerCase();
+      const editable = (t && (t as any).isContentEditable) || tag === 'input' || tag === 'textarea';
+      if (editable) return;
+      const k = e.key;
+      if (k && k.length === 1 && k >= '0' && k <= '9') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    window.addEventListener('keypress', handler, true);
+    numericGuardAttached = true;
   }
 }
