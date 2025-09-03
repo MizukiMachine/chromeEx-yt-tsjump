@@ -5,7 +5,7 @@
 
 import { parseAndNormalize24h } from './timeparse';
 import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
-import { getC } from './calibration';
+import { getC, getCalibration } from './calibration';
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 
 export interface JumpOptions {
@@ -39,6 +39,7 @@ export function jumpToLocalTime(
   zone: string,
   opts: JumpOptions = {}
 ): JumpResult {
+  const DEBUG = safeGetLocal('debug:jump') === '1';
   const parsed = parseAndNormalize24h(input);
   if (!parsed.ok) {
     return { ok: false, decision: 'parse-error', reason: parsed.error };
@@ -68,9 +69,38 @@ export function jumpToLocalTime(
 
   const t_target = E_target - C;
 
+  if (DEBUG) {
+    const now = Math.floor(Date.now() / 1000);
+    const cal = getCalibration();
+    // 概要を出力（本番でも読みやすいように整形）
+    // eslint-disable-next-line no-console
+    console.debug('[Jump] request', {
+      input,
+      normalized: parsed.normalized,
+      zone,
+      todayInZone: date,
+      tzWall: tz.wall,
+      E_target,
+      now,
+      C,
+      calStatus: cal.status,
+      mad: cal.mad,
+      start,
+      end,
+      endGuard,
+      E_start,
+      E_end,
+      t_target,
+    });
+  }
+
   // 範囲内ならそのままseek
   if (t_target >= start && t_target <= endGuard) {
     const r = seek(video, t_target);
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.debug('[Jump] seek-in-range', r);
+    }
     return {
       ok: true,
       decision: 'seek-in-range',
@@ -87,6 +117,10 @@ export function jumpToLocalTime(
   const dEnd = Math.abs(E_target - E_end);
   if (dEnd <= dStart) {
     const r = seek(video, endGuard);
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.debug('[Jump] jump-end', { dStart, dEnd, r });
+    }
     return {
       ok: true,
       decision: 'jump-end',
@@ -98,6 +132,10 @@ export function jumpToLocalTime(
     };
   } else {
     const r = seek(video, start);
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.debug('[Jump] jump-start', { dStart, dEnd, r });
+    }
     return {
       ok: true,
       decision: 'jump-start',
@@ -110,3 +148,6 @@ export function jumpToLocalTime(
   }
 }
 
+function safeGetLocal(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
