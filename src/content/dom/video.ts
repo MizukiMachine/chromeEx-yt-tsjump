@@ -25,10 +25,7 @@ export function getVideoElement(opts: GetVideoOptions = {}): Promise<HTMLVideoEl
       return;
     }
 
-    const pick = (): HTMLVideoElement | null => {
-      const v = document.querySelector('video') as HTMLVideoElement | null;
-      return v && v.isConnected ? v : null;
-    };
+    const pick = (): HTMLVideoElement | null => pickMainVideo();
 
     const existing = pick();
     if (existing) {
@@ -84,10 +81,7 @@ export interface VideoObserverHandle {
 export function observeVideo(
   cb: (video: HTMLVideoElement | null, reason: VideoChangeReason) => void
 ): VideoObserverHandle {
-  const pick = (): HTMLVideoElement | null => {
-    const v = document.querySelector('video') as HTMLVideoElement | null;
-    return v && v.isConnected ? v : null;
-  };
+  const pick = (): HTMLVideoElement | null => pickMainVideo();
 
   let current: HTMLVideoElement | null = pick();
   if (current) cb(current, 'existing');
@@ -115,4 +109,38 @@ export function observeVideo(
       return v && v.isConnected ? v : null;
     },
   };
+}
+
+/**
+ * YouTubeのメイン動画を優先的に選ぶヒューリスティクス
+ * - html5-main-video / video-stream を最優先
+ * - #movie_player 配下を優先
+ * - seekableがある / currentSrcがgooglevideoを含む で加点
+ */
+function pickMainVideo(): HTMLVideoElement | null {
+  const list = Array.from(document.querySelectorAll('video')) as HTMLVideoElement[];
+  const connected = list.filter((v) => v && v.isConnected);
+  if (connected.length === 0) return null;
+
+  let best: HTMLVideoElement | null = null;
+  let bestScore = -1;
+
+  for (const v of connected) {
+    let score = 0;
+    const cls = (v.className || '').toString();
+    if (cls.includes('html5-main-video')) score += 5;
+    if (cls.includes('video-stream')) score += 3;
+    try { if (v.closest('#movie_player')) score += 2; } catch {}
+    try { if (v.seekable && v.seekable.length > 0) score += 2; } catch {}
+    try { if (typeof v.currentSrc === 'string' && v.currentSrc.includes('googlevideo')) score += 2; } catch {}
+    try { if (v.readyState >= 1) score += 1; } catch {}
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
+  }
+
+  // 最低限のフォールバック
+  return best ?? connected[0] ?? null;
 }

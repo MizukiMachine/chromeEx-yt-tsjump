@@ -14,9 +14,13 @@ export function getSeekableStart(video: HTMLVideoElement): number {
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
-      // 最も古い範囲の開始
-      const s = r.start(0);
-      return Number.isFinite(s) ? s : 0;
+      // すべての範囲から最小値を選ぶ（順序保証に依存しない）
+      let min = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < r.length; i++) {
+        const s = r.start(i);
+        if (Number.isFinite(s) && s < min) min = s;
+      }
+      return Number.isFinite(min) ? min : 0;
     } catch {
       return 0;
     }
@@ -32,10 +36,13 @@ export function getSeekableEnd(video: HTMLVideoElement): number {
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
-      // 最も新しい範囲の終端
-      const idx = r.length - 1;
-      const e = r.end(idx);
-      if (Number.isFinite(e)) return e;
+      // すべての範囲から最大値を選ぶ（順序保証に依存しない）
+      let max = Number.NEGATIVE_INFINITY;
+      for (let i = 0; i < r.length; i++) {
+        const e = r.end(i);
+        if (Number.isFinite(e) && e > max) max = e;
+      }
+      if (Number.isFinite(max)) return max;
     } catch {
       /* no-op */
     }
