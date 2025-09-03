@@ -316,8 +316,9 @@ function ensureCard() {
         e.stopPropagation();
       }
     };
-    window.addEventListener('keydown', handler, true);
-    window.addEventListener('keypress', handler, true);
+    // バブリングで監視 入力側のキャプチャ停止が優先される
+    window.addEventListener('keydown', handler, false);
+    window.addEventListener('keypress', handler, false);
     numericGuardAttached = true;
   }
 }
