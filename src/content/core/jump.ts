@@ -5,7 +5,7 @@
 
 import { parseAndNormalize24h } from './timeparse';
 import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
-import { getC, getCalibration } from './calibration';
+import * as calibration from './calibration';
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 
 export interface JumpOptions {
@@ -49,7 +49,7 @@ export function jumpToLocalTime(
   const tz = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date });
 
   // Cの取得 暫定が無ければフォールバックで計算
-  let C = opts.cOverride ?? getC();
+  let C = opts.cOverride ?? (typeof calibration.getC === 'function' ? calibration.getC() : null);
   if (C == null) {
     const end = getSeekableEnd(video);
     if (end > 0) C = Date.now() / 1000 - end;
@@ -67,11 +67,21 @@ export function jumpToLocalTime(
   const E_start = C + start;
   const E_end = C + endGuard;
 
-  const t_target = E_target - C;
+  const t_endBased = E_target - C;
+
+  // 位相補正（nearLiveで推定したphaseを常に適用）
+  let phase: number | null = null;
+  let phaseMad: number | null = null;
+  try {
+    const info = typeof calibration.getPhase === 'function' ? calibration.getPhase() : { phase: null, mad: null };
+    phase = info.phase;
+    phaseMad = info.mad;
+  } catch {}
+  const t_target = phase != null ? t_endBased - phase : t_endBased;
 
   if (DEBUG) {
     const now = Math.floor(Date.now() / 1000);
-    const cal = getCalibration();
+    const cal = typeof calibration.getCalibration === 'function' ? calibration.getCalibration() : ({} as any);
     // 概要を出力（本番でも読みやすいように整形）
     // eslint-disable-next-line no-console
     console.debug('[Jump] request', {
@@ -85,6 +95,9 @@ export function jumpToLocalTime(
       C,
       calStatus: cal.status,
       mad: cal.mad,
+      phase,
+      phaseMad,
+      t_endBased,
       start,
       end,
       endGuard,

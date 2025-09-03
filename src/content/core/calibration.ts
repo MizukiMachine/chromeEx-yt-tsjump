@@ -16,6 +16,8 @@ const MONITOR_INTERVAL_MS = 5000;    // 監視周期
 const PERIODIC_RECAL_MS = 10 * 60 * 1000; // 10分ごと軽量再測定
 const EFFECTIVE_END_PREFER_BUFFERED_DELTA_SEC = 120; // seekableとbufferedの差が大きい場合はbufferedを採用
 const PROGRESS_EPS_SEC = 0.5; // 進行判定の微小閾値
+const NEARLIVE_THRESHOLD_SEC = 30; // ライブ端付近の判定
+const PHASE_MAX_SAMPLES = 12; // 位相サンプル最大数
 
 // 内部状態
 type Status = 'idle' | 'sampling' | 'ready';
@@ -30,6 +32,9 @@ interface State {
   monitorTimer: number | null;   // 監視タイマー（seekable変化/ドリフト）
   periodicTimer: number | null;  // 10分ごとの軽量再測定
   lastEnd: number | null;        // 直近のseekable end
+  phaseSamples: number[];        // Delay = effectiveEnd - currentTime のサンプル
+  phaseMedian: number | null;    // 位相補正（median）
+  phaseMad: number | null;       // 位相の安定度
 }
 
 const state: State = {
@@ -42,6 +47,9 @@ const state: State = {
   monitorTimer: null,
   periodicTimer: null,
   lastEnd: null,
+  phaseSamples: [],
+  phaseMedian: null,
+  phaseMad: null,
 };
 
 /**
@@ -76,6 +84,9 @@ export function getCalibration() {
     mad: state.mad,
     samples: state.samples.length,
     quality,
+    phaseMedian: state.phaseMedian,
+    phaseMad: state.phaseMad,
+    phaseSamples: state.phaseSamples.length,
   } as const;
 }
 
@@ -161,6 +172,8 @@ function startSampling(video: HTMLVideoElement, nSamples: number, intervalMs: nu
           const dbg = debugEndParts(video);
           debugCal('sample', { i: count + 1, end, ...dbg, Ci, median: state.median, mad: state.mad, C: state.C });
         }
+        // 位相サンプル（nearLiveのみ）
+        samplePhase(video, end);
         // 有効サンプルのみカウント
         count += 1;
       }
@@ -206,6 +219,11 @@ function startMonitors(video: HTMLVideoElement) {
             debugCal('recal-trigger', { type: 'drift', drift });
             startSampling(video, LIGHT_SAMPLES, LIGHT_INTERVAL_MS, 'drift');
           }
+        }
+
+        // 位相サンプル（進行時のみ）
+        if (progressed) {
+          samplePhase(video, end);
         }
 
         // 最後に更新
@@ -262,10 +280,37 @@ function debugEndParts(video: HTMLVideoElement): Record<string, unknown> {
     const buf = getBufferedEnd(video);
     const picked = safeEnd(video);
     const pickedSrc = (Number.isFinite(buf) && buf > 0 && (!Number.isFinite(seek) || seek - buf > EFFECTIVE_END_PREFER_BUFFERED_DELTA_SEC)) ? 'buffered' : (Number.isFinite(seek) ? 'seekable' : 'buffered');
-    return { seekableEnd: seek, bufferedEnd: buf, effectiveEnd: picked, endSource: pickedSrc };
+    const delay = picked - safeCurrentTime(video);
+    return { seekableEnd: seek, bufferedEnd: buf, effectiveEnd: picked, endSource: pickedSrc, delay };
   } catch {
     return {};
   }
+}
+
+function samplePhase(video: HTMLVideoElement, effectiveEnd: number): void {
+  try {
+    const ct = safeCurrentTime(video);
+    const delay = effectiveEnd - ct;
+    // nearLiveのみ採用（負値や極端な値は除外）
+    if (delay >= 0 && delay <= NEARLIVE_THRESHOLD_SEC) {
+      state.phaseSamples.push(delay);
+      if (state.phaseSamples.length > PHASE_MAX_SAMPLES) state.phaseSamples.shift();
+      const { median, mad } = computeMedianMad(state.phaseSamples);
+      state.phaseMedian = median;
+      state.phaseMad = mad;
+      debugCal('phase', { delay, phaseMedian: state.phaseMedian, phaseMad: state.phaseMad, samples: state.phaseSamples.length });
+    }
+  } catch {
+    /* no-op */
+  }
+}
+
+function safeCurrentTime(video: HTMLVideoElement): number {
+  try { return video.currentTime; } catch { return 0; }
+}
+
+export function getPhase(): { phase: number | null; mad: number | null } {
+  return { phase: state.phaseMedian, mad: state.phaseMad };
 }
 
 function debugCal(event: string, payload?: Record<string, unknown>) {
