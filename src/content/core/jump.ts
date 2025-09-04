@@ -45,8 +45,13 @@ export function jumpToLocalTime(
     return { ok: false, decision: 'parse-error', reason: parsed.error };
   }
 
-  const date = opts.date ?? getTodayInZone(zone);
-  const tz = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date });
+  // 候補日（today / yesterday / tomorrow）を用意し、最適な候補を選ぶ
+  const today = opts.date ?? getTodayInZone(zone);
+  const yesterday = shiftYMD(today, -1);
+  const tomorrow = shiftYMD(today, +1);
+  const tzToday = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date: today });
+  const tzYest = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date: yesterday });
+  const tzTmrw = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date: tomorrow });
 
   // Cの取得 暫定が無ければフォールバックで計算
   let C = opts.cOverride ?? (typeof calibration.getC === 'function' ? calibration.getC() : null);
@@ -63,10 +68,23 @@ export function jumpToLocalTime(
   const end = getSeekableEnd(video);
   const endGuard = Math.max(start, end - GUARD_SEC);
 
-  const E_target = tz.epochSec;
+  // 再生範囲
   const E_start = C + start;
   const E_end = C + endGuard;
 
+  // today/yesterday/tomorrow のうち 範囲内に入る候補を選択（近い将来/過去の順に）
+  const candidates = [
+    { tag: 'today', E: tzToday.epochSec, tz: tzToday },
+    { tag: 'yesterday', E: tzYest.epochSec, tz: tzYest },
+    { tag: 'tomorrow', E: tzTmrw.epochSec, tz: tzTmrw },
+  ];
+  const within = candidates.filter((c) => c.E >= E_start && c.E <= E_end);
+  // 範囲内があれば end（=“今”）に近い方を選ぶ。なければ today を使って従来ロジックへ
+  const best = within.length
+    ? within.sort((a, b) => Math.abs(E_end - a.E) - Math.abs(E_end - b.E))[0]
+    : candidates[0];
+
+  const E_target = best.E;
   const t_endBased = E_target - C;
 
   // 位相補正（nearLiveで推定したphaseを常に適用）
@@ -93,8 +111,12 @@ export function jumpToLocalTime(
       input,
       normalized: parsed.normalized,
       zone,
-      todayInZone: date,
-      tzWall: tz.wall,
+      todayInZone: today,
+      picked: best.tag,
+      tzWallPicked: best.tz.wall,
+      tzWallToday: tzToday.wall,
+      tzWallYesterday: tzYest.wall,
+      tzWallTomorrow: tzTmrw.wall,
       E_target,
       now,
       C,
@@ -168,4 +190,15 @@ export function jumpToLocalTime(
 
 function safeGetLocal(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function shiftYMD(d: YMD, deltaDays: number): YMD {
+  try {
+    const dt = new Date(Date.UTC(d.year, d.month - 1, d.day));
+    dt.setUTCDate(dt.getUTCDate() + deltaDays);
+    return { year: dt.getUTCFullYear(), month: dt.getUTCMonth() + 1, day: dt.getUTCDate() };
+  } catch {
+    // フォールバック（雑だが壊さない）
+    return d;
+  }
 }
