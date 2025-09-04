@@ -73,11 +73,16 @@ export function jumpToLocalTime(
   let phase: number | null = null;
   let phaseMad: number | null = null;
   try {
-    const info = typeof calibration.getPhase === 'function' ? calibration.getPhase() : { phase: null, mad: null };
+    const info = typeof calibration.getPhaseFor === 'function' ? calibration.getPhaseFor(video) : { phase: null, mad: null };
     phase = info.phase;
     phaseMad = info.mad;
   } catch {}
-  const t_target = phase != null ? t_endBased - phase : t_endBased;
+  // 注意: C は (now - effectiveEnd) を基準に推定しているため、
+  // 実際のフレームのエポックは `now - latency` だけ手前にあり、
+  // その近似としての位相(phase = effectiveEnd - currentTime)を
+  // t に「足す」方向で補正するのが妥当。
+  const usePhase = phase != null && (phaseMad == null || phaseMad <= 2.0);
+  const t_target = usePhase ? t_endBased + (phase as number) : t_endBased;
 
   if (DEBUG) {
     const now = Math.floor(Date.now() / 1000);

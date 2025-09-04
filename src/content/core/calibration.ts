@@ -35,6 +35,7 @@ interface State {
   phaseSamples: number[];        // Delay = effectiveEnd - currentTime のサンプル
   phaseMedian: number | null;    // 位相補正（median）
   phaseMad: number | null;       // 位相の安定度
+  phaseKey: string | null;       // 位相が有効な動画キー（動画ごとに分離）
 }
 
 const state: State = {
@@ -50,6 +51,7 @@ const state: State = {
   phaseSamples: [],
   phaseMedian: null,
   phaseMad: null,
+  phaseKey: null,
 };
 
 /**
@@ -96,6 +98,11 @@ export function getCalibration() {
  */
 export function startCalibration(video: HTMLVideoElement): void {
   stopCalibration();
+  // 動画キーを更新し、位相サンプルをリセット
+  state.phaseKey = computeVideoKey(video);
+  state.phaseSamples = [];
+  state.phaseMedian = null;
+  state.phaseMad = null;
   // メタデータが未取得なら待ってから開始
   if (video.readyState < 1) {
     const onMeta = () => {
@@ -293,6 +300,14 @@ function samplePhase(video: HTMLVideoElement, effectiveEnd: number): void {
     const delay = effectiveEnd - ct;
     // nearLiveのみ採用（負値や極端な値は除外）
     if (delay >= 0 && delay <= NEARLIVE_THRESHOLD_SEC) {
+      // 動画が切り替わっていたらキーを更新してサンプルをクリア
+      const key = computeVideoKey(video);
+      if (state.phaseKey !== key) {
+        state.phaseKey = key;
+        state.phaseSamples = [];
+        state.phaseMedian = null;
+        state.phaseMad = null;
+      }
       state.phaseSamples.push(delay);
       if (state.phaseSamples.length > PHASE_MAX_SAMPLES) state.phaseSamples.shift();
       const { median, mad } = computeMedianMad(state.phaseSamples);
@@ -309,8 +324,24 @@ function safeCurrentTime(video: HTMLVideoElement): number {
   try { return video.currentTime; } catch { return 0; }
 }
 
-export function getPhase(): { phase: number | null; mad: number | null } {
-  return { phase: state.phaseMedian, mad: state.phaseMad };
+export function getPhaseFor(video: HTMLVideoElement): { phase: number | null; mad: number | null } {
+  const key = computeVideoKey(video);
+  if (state.phaseKey && state.phaseKey === key) {
+    return { phase: state.phaseMedian, mad: state.phaseMad };
+  }
+  return { phase: null, mad: null };
+}
+
+function computeVideoKey(video: HTMLVideoElement): string {
+  try {
+    const url = new URL(window.location.href);
+    const v = url.searchParams.get('v');
+    if (v) return `yt:v=${v}`;
+  } catch {}
+  try {
+    if (video.currentSrc) return `src:${String(video.currentSrc)}`;
+  } catch {}
+  return `ts:${Date.now()}`; // フォールバック（ほぼ即座に更新されうる）
 }
 
 function debugCal(event: string, payload?: Record<string, unknown>) {
