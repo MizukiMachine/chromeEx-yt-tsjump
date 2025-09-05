@@ -32,7 +32,7 @@ YouTube の長尺動画および DVR 対応ライブ配信に対して、以下�
 ## ■ 機能要件（FR）
 
 FR-1 長時間シーク
-- 既定ショートカット: Alt+Q（−60）、Alt+A（−10）、Alt+W（＋60）、Alt+S（＋10）
+- 既定ショートカット: Alt+Shift+S（−60）、Alt+Shift+D（−10）、Alt+Shift+G（＋60）、Alt+Shift+F（＋10）
 - シークは [start, end−GUARD] にクランプ
 - 入力中（IME 変換含む）は誤作動防止のためショートカットを抑止
 
@@ -118,4 +118,3 @@ NFR-5 国際化
 
 - Chrome Web Store に提出（Public または Unlisted）
 - パッケージにはアイコン、説明、スクリーンショット、CHANGELOG を含む
-
