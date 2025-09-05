@@ -123,9 +123,24 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           <button onClick={() => api.close()} title="Close" style={{ marginLeft: 'auto', background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
         </div>
         <form onSubmit={onSubmit as any}>
-          <input ref={inputRef} value={input} onInput={(e: any) => setInput(e.currentTarget.value)}
-            placeholder="HH:mm or HHmm" spellcheck={false}
-            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none' }} />
+          <input
+            ref={inputRef}
+            value={input}
+            onInput={(e: any) => {
+              const raw = e.currentTarget.value as string
+              // 数字とコロン以外を除去（Paste含む）
+              const cleaned = raw.replace(/[^0-9:]/g, '')
+              // 先頭のコロンは不可（連続コロンもまとめて除去）
+              const noLeadingColon = cleaned.replace(/^:+/, '')
+              if (noLeadingColon !== raw) e.currentTarget.value = noLeadingColon
+              setInput(noLeadingColon)
+            }}
+            inputMode="numeric"
+            pattern="[0-9:]*"
+            placeholder="HH:mm or HHmm"
+            spellcheck={false}
+            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none' }}
+          />
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
             <select value={zone} onChange={(e: any) => setZone(e.currentTarget.value)} style={{ flex: 1, padding: '6px 8px', background: '#111', color: '#fff', border: '1px solid #444', borderRadius: '6px' }}>
               {mru.length > 0 && <optgroup label="Recent">{mru.map((z) => <option value={z}>{z}</option>)}</optgroup>}
