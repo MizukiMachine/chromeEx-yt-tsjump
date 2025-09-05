@@ -103,16 +103,27 @@ export function startCalibration(video: HTMLVideoElement): void {
   state.phaseSamples = [];
   state.phaseMedian = null;
   state.phaseMad = null;
-  // メタデータが未取得なら待ってから開始
-  if (video.readyState < 1) {
+
+  // サンプリング開始（多重開始を防ぐ）
+  let started = false;
+  const startNow = () => {
+    if (started) return;
+    started = true;
+    startSampling(video, MAX_SAMPLES, SAMPLE_INTERVAL_MS, 'initial');
+  };
+
+  // メタデータを待てる環境ではリスナーを登録しつつ、
+  // テストや疑似環境でも動くように即時フォールバック開始
+  if (typeof (video as any)?.addEventListener === 'function') {
     const onMeta = () => {
       try { video.removeEventListener('loadedmetadata', onMeta); } catch {}
-      startSampling(video, MAX_SAMPLES, SAMPLE_INTERVAL_MS, 'initial');
+      startNow();
     };
-    try { video.addEventListener('loadedmetadata', onMeta, { once: true } as any); } catch { onMeta(); }
-  } else {
-    startSampling(video, MAX_SAMPLES, SAMPLE_INTERVAL_MS, 'initial');
+    try { video.addEventListener('loadedmetadata', onMeta, { once: true } as any); } catch {}
   }
+  // readyStateに関わらず、まずは開始（endが未準備ならtick内でスキップされる）
+  startNow();
+
   // 監視を開始
   try {
     state.lastEnd = safeEnd(video);
