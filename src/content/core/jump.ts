@@ -148,7 +148,7 @@ export function jumpToLocalTime(
       epoch: E_target,
       target: r.target,
       range: r.range,
-      flags: { ambiguous: tz.ambiguous, gap: tz.gap },
+      flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap },
     };
   }
 
@@ -168,7 +168,7 @@ export function jumpToLocalTime(
       epoch: E_target,
       target: r.target,
       range: r.range,
-      flags: { ambiguous: tz.ambiguous, gap: tz.gap },
+      flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap },
     };
   } else {
     const r = seek(video, start);
@@ -183,7 +183,7 @@ export function jumpToLocalTime(
       epoch: E_target,
       target: r.target,
       range: r.range,
-      flags: { ambiguous: tz.ambiguous, gap: tz.gap },
+      flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap },
     };
   }
 }
