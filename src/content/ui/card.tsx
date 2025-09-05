@@ -97,6 +97,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setStatus(r.reason || 'Failed')
       } else {
         setStatus(r.decision.replace('-', ' '))
+        // 成功したら入力欄をクリア
+        setInput('')
       }
       // MRU更新
       try {
