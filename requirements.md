@@ -37,7 +37,7 @@ FR-1 長時間シーク
 - 入力中（IME 変換含む）は誤作動防止のためショートカットを抑止
 
 FR-2 時刻ジャンプ（選択タイムゾーン）
-- 入力形式: `HH:mm`, `HH:mm:ss`, `HHmm`, `HHmmss`（24 時間表記のみ）
+- 入力形式: `HH:mm`, `HH:mm:ss`, `HHmm`, `HHmmss`, `HH`（または `H`）※24 時間表記のみ。`HH` は「時のみ」で分秒は `:00` とみなす
 - 自動補正: 欠落秒は `:00`。分・秒が 60 以上は繰り上げ（例: `08:80` → `09:20:00`）。補正後に `HH>=24` は当日外
 - タイムゾーン: 入力カード右上で選択。既定は `Europe/Amsterdam`。MRU 先頭 5 件、残りはアルファベット順
 - 初期リスト: `Asia/Tokyo`, `Europe/Amsterdam`, `Africa/Windhoek`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Europe/Berlin`, `Australia/Sydney`, `UTC`, `Asia/Singapore`

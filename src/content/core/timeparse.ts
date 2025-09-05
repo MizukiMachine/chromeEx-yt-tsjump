@@ -39,8 +39,12 @@ export function parseAndNormalize24h(input: string): ParseResult {
     return normalize(h, m, s)
   }
 
-  // 数字のみ HHmm or HHmmss
+  // 数字のみ HH or HHmm or HHmmss
   if (!/^\d+$/.test(raw)) return err('数字以外を含む')
+  if (raw.length <= 2) {
+    const h = toInt(raw)!
+    return normalize(h, 0, 0)
+  }
   if (raw.length === 4) {
     const h = toInt(raw.slice(0, 2))!
     const m = toInt(raw.slice(2, 4))!

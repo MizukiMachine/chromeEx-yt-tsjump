@@ -45,6 +45,24 @@ describe('parseAndNormalize24h 正規化', () => {
     const r = parseAndNormalize24h('7:5:70')
     expect(r.ok && r.normalized === '07:06:10').toBe(true)
   })
+
+  it('HH 15 → 15:00:00', () => {
+    const r = parseAndNormalize24h('15')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.normalized).toBe('15:00:00')
+      expect(r.overflow).toBe(false)
+    }
+  })
+
+  it('H 2 → 02:00:00', () => {
+    const r = parseAndNormalize24h('2')
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.normalized).toBe('02:00:00')
+      expect(r.overflow).toBe(false)
+    }
+  })
 })
 
 describe('parseAndNormalize24h エラー', () => {
@@ -63,4 +81,3 @@ describe('parseAndNormalize24h エラー', () => {
     expect(r.ok).toBe(false)
   })
 })
-
