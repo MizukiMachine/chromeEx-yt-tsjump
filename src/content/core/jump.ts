@@ -82,31 +82,26 @@ export function jumpToLocalTime(
     { tag: 'tomorrow', E: tzTmrw.epochSec, tz: tzTmrw },
   ];
   const within = candidates.filter((c) => c.E >= E_start && c.E <= E_end);
-  // 範囲内があれば end（=“今”）に近い方を選ぶ。なければ today を使って従来ロジックへ
+  // 範囲内があれば end（=“今”）に近い方を選ぶ
+  // 範囲外しか無ければ、区間 [E_start, E_end] への距離が最小の候補を選ぶ（today固定をやめる）
+  function distToInterval(E: number): number {
+    if (E < E_start) return E_start - E;
+    if (E > E_end) return E - E_end;
+    return 0;
+  }
   const best = within.length
     ? within.sort((a, b) => Math.abs(E_end - a.E) - Math.abs(E_end - b.E))[0]
-    : candidates[0];
+    : candidates
+        .map((c) => ({ c, d: distToInterval(c.E) }))
+        .sort((a, b) => a.d - b.d)[0].c;
 
   const E_target = best.E;
   let t_endBased = E_target - C;
 
   // レイテンシ補正（手動/自動）は廃止。t_endBased をそのまま用いる
 
-  // 位相補正（nearLiveで推定したphaseを常に適用）
-  let phase: number | null = null;
-  let phaseMad: number | null = null;
-  try {
-    const info = typeof calibration.getPhaseFor === 'function' ? calibration.getPhaseFor(video) : { phase: null, mad: null };
-    phase = info.phase;
-    phaseMad = info.mad;
-  } catch {}
-  // 注意: C は (now - effectiveEnd) を基準に推定しているため、
-  // 実際のフレームのエポックは `now - latency` だけ手前にあり、
-  // その近似としての位相(phase = effectiveEnd - currentTime)を
-  // t に「足す」方向で補正するのが妥当。
-  const cfgPhaseOff = safeGetLocal('cfg:phase:off') === '1';
-  const usePhase = !cfgPhaseOff && phase != null && (phaseMad == null || phaseMad <= 2.0);
-  const t_target = usePhase ? t_endBased + (phase as number) : t_endBased;
+  // 位相補正（phase）は廃止。t_target は t_endBased をそのまま用いる
+  const t_target = t_endBased;
 
   if (DEBUG) {
     const now = Math.floor(Date.now() / 1000);
@@ -128,8 +123,6 @@ export function jumpToLocalTime(
       C,
       calStatus: cal.status,
       mad: cal.mad,
-      phase,
-      phaseMad,
       t_endBased,
       start,
       end,
