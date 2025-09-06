@@ -8,6 +8,8 @@ import { handleSeekCommand } from './handlers/commands';
 import { startCalibration, stopCalibration } from './core/calibration';
 import { mountCard, type CardAPI } from './ui/card';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
+import { startAdWatch } from './core/adsense';
+import { initToast, showToast } from './ui/toast';
 
 function frameTag(): string {
   try {
@@ -27,6 +29,7 @@ let hasShadowRoot = false;
 let disposeMessageListener: (() => void) | null = null;
 let cardApi: CardAPI | null = null;
 let numericGuardAttached = false;
+let jumpBtnInserted = false;
 
 /**
  * 初期化処理
@@ -143,11 +146,22 @@ function setupVideoObserver() {
     if (video) {
       ensureShadowRoot();
       ensureCard();
+      ensureToast();
       ensureShortcutHelp();
+      ensureJumpButton();
       // startEpoch 検出は廃止（シンプル化）
       console.log(
         `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
       );
+      // 広告監視を起動
+      try {
+        const playerRoot = (video.closest('.html5-video-player') as HTMLElement | null) ?? document;
+        startAdWatch(playerRoot, (active) => {
+          if (active) {
+            showToast('An ad is playing, so seeking is paused.', 'warn');
+          }
+        });
+      } catch {}
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
       // 初期キャリブレーションはデフォルト無効
@@ -331,5 +345,51 @@ function ensureCard() {
     window.addEventListener('keydown', handler, false);
     window.addEventListener('keypress', handler, false);
     numericGuardAttached = true;
+  }
+}
+
+// ToastをShadowRootに初期化
+function ensureToast() {
+  const host = document.getElementById('yt-longseek-tsjump-root');
+  const sr = host?.shadowRoot;
+  if (!sr) return;
+  initToast(sr);
+}
+
+// YouTubeコントロールバー右端にJumpボタンを挿入（失敗しても致命ではない）
+function ensureJumpButton() {
+  if (jumpBtnInserted) return;
+  try {
+    const controls = document.querySelector('.ytp-right-controls') as HTMLElement | null;
+    if (!controls) {
+      // 後から現れることがあるため軽く再試行
+      setTimeout(ensureJumpButton, 1000);
+      return;
+    }
+    // 既に設置済みならスキップ
+    if (controls.querySelector('.ytp-button.yt-longseek-jump')) {
+      jumpBtnInserted = true;
+      return;
+    }
+    const btn = document.createElement('button');
+    btn.className = 'ytp-button yt-longseek-jump';
+    btn.title = 'Jump to local time';
+    btn.ariaLabel = 'Jump to local time';
+    // シンプルな時計風アイコン文字（YouTube標準に近い見た目は後でSVG化可能）
+    btn.textContent = '⏱';
+    btn.style.fontSize = '16px';
+    btn.style.lineHeight = '24px';
+    btn.style.width = '36px';
+    btn.style.textAlign = 'center';
+    btn.addEventListener('click', () => {
+      try {
+        cardApi?.toggle();
+        // 開いたら入力へフォーカスはcard側が行う
+      } catch {}
+    });
+    controls.insertBefore(btn, controls.firstChild);
+    jumpBtnInserted = true;
+  } catch {
+    // no-op
   }
 }

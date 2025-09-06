@@ -3,6 +3,8 @@
  * ±10 ±60 を実装
  */
 import { seek } from '../core/seek';
+import { isAdActive } from '../core/adsense';
+import { showToast } from '../ui/toast';
 
 export type SeekCommand =
   | 'seek-backward-60'
@@ -11,6 +13,10 @@ export type SeekCommand =
   | 'seek-forward-10';
 
 export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand): void {
+  if (isAdActive()) {
+    showToast('An ad is playing, so seeking is paused.', 'warn');
+    return;
+  }
   const MIN = 60;
   const deltas: Record<SeekCommand, number> = {
     'seek-backward-60': -60 * MIN,
@@ -33,4 +39,3 @@ export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand)
     range: result.range,
   });
 }
-
