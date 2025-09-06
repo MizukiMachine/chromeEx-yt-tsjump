@@ -149,8 +149,18 @@ function setupVideoObserver() {
       );
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
-      // 初期キャリブレーションを開始
-      startCalibration(video);
+      // 初期キャリブレーションはデフォルト無効
+      // 計測が必要なときだけ localStorage のフラグで明示的に有効化
+      // 例: localStorage.setItem('cfg:cal:auto','1') または debug:cal=1
+      try {
+        const auto = localStorage.getItem('cfg:cal:auto') === '1';
+        const debug = localStorage.getItem('debug:cal') === '1';
+        if (auto || debug) {
+          startCalibration(video);
+        }
+      } catch {
+        /* no-op */
+      }
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
