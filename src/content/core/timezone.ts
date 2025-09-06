@@ -21,6 +21,7 @@ export const PRESET_ZONES: string[] = [
   'Europe/Copenhagen',
   'Europe/London',
   'Europe/Berlin',
+  'Europe/Rome',
   'Australia/Sydney',
   'UTC',
   'Asia/Singapore',
