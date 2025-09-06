@@ -99,7 +99,8 @@ export function jumpToLocalTime(
   // 実際のフレームのエポックは `now - latency` だけ手前にあり、
   // その近似としての位相(phase = effectiveEnd - currentTime)を
   // t に「足す」方向で補正するのが妥当。
-  const usePhase = phase != null && (phaseMad == null || phaseMad <= 2.0);
+  const cfgPhaseOff = safeGetLocal('cfg:phase:off') === '1';
+  const usePhase = !cfgPhaseOff && phase != null && (phaseMad == null || phaseMad <= 2.0);
   const t_target = usePhase ? t_endBased + (phase as number) : t_endBased;
 
   if (DEBUG) {
