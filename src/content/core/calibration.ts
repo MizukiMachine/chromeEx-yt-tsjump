@@ -185,7 +185,10 @@ function startSampling(video: HTMLVideoElement, nSamples: number, intervalMs: nu
         const center = computeMedianMad(filtered);
         state.median = center.median;
         state.mad = center.mad;
-        state.C = center.median;
+        // Cの固定フラグが有効で既にCがある場合は更新しない
+        if (!isCfgOn('cfg:cal:freeze') || state.C == null) {
+          state.C = center.median;
+        }
         if (isDebugCal()) {
           const dbg = debugEndParts(video);
           debugCal('sample', { i: count + 1, end, ...dbg, Ci, median: state.median, mad: state.mad, C: state.C });
@@ -306,6 +309,8 @@ function debugEndParts(video: HTMLVideoElement): Record<string, unknown> {
 }
 
 function samplePhase(video: HTMLVideoElement, effectiveEnd: number): void {
+  // phase無効フラグ時は収集しない（クリーン計測用）
+  if (isCfgOn('cfg:phase:off')) return;
   try {
     const ct = safeCurrentTime(video);
     const delay = effectiveEnd - ct;
@@ -366,6 +371,14 @@ function debugCal(event: string, payload?: Record<string, unknown>) {
 function isDebugCal(): boolean {
   try {
     return localStorage.getItem('debug:cal') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function isCfgOn(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
   } catch {
     return false;
   }
