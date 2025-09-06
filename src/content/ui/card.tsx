@@ -2,6 +2,7 @@ import { render, h } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { jumpToLocalTime } from '../core/jump'
+// シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
 const KEY_OPEN = 'card:open'
@@ -32,6 +33,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const [status, setStatus] = useState<string>('')
     const inputRef = useRef<HTMLInputElement>(null)
     const [typing, setTyping] = useState(false)
+    // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
     const { mru, others } = useMemo(() => {
@@ -150,6 +152,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           </div>
         </form>
         {status && <div style={{ marginTop: '6px', fontSize: '12px', color: '#bbb' }}>{status}</div>}
+        {/* シンプル運用のため、補助UIは非表示 */}
         <div style={{ marginTop: '6px', fontSize: '11px', color: '#aaa' }}>Press Alt+Shift+J to toggle</div>
       </div>
     )

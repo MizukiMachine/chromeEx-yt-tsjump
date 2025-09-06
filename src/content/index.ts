@@ -144,6 +144,7 @@ function setupVideoObserver() {
       ensureShadowRoot();
       ensureCard();
       ensureShortcutHelp();
+      // startEpoch 検出は廃止（シンプル化）
       console.log(
         `[Content:${frameTag()}] Video ready reason=${reason} duration=${video.duration} current=${video.currentTime} readyState=${video.readyState}`
       );

@@ -6,6 +6,7 @@
 import { parseAndNormalize24h } from './timeparse';
 import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
 import * as calibration from './calibration';
+// startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 
 export interface JumpOptions {
@@ -53,10 +54,12 @@ export function jumpToLocalTime(
   const tzYest = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date: yesterday });
   const tzTmrw = toEpochInZone(zone, { hh: parsed.hh, mm: parsed.mm, ss: parsed.ss }, { date: tomorrow });
 
+  // startEpoch を使った直写像は廃止（シンプル化）
+
   // Cの取得 暫定が無ければフォールバックで計算
   let C = opts.cOverride ?? (typeof calibration.getC === 'function' ? calibration.getC() : null);
   if (C == null) {
-    const end = getSeekableEnd(video);
+    const end = effectiveEndForJump(video);
     if (end > 0) C = Date.now() / 1000 - end;
   }
 
@@ -85,7 +88,9 @@ export function jumpToLocalTime(
     : candidates[0];
 
   const E_target = best.E;
-  const t_endBased = E_target - C;
+  let t_endBased = E_target - C;
+
+  // レイテンシ補正（手動/自動）は廃止。t_endBased をそのまま用いる
 
   // 位相補正（nearLiveで推定したphaseを常に適用）
   let phase: number | null = null;
@@ -201,5 +206,26 @@ function shiftYMD(d: YMD, deltaDays: number): YMD {
   } catch {
     // フォールバック（雑だが壊さない）
     return d;
+  }
+}
+
+// Prefer buffered end when it is far behind seekable end (e.g., ~59min anomaly),
+// otherwise use seekable end. This mirrors calibration's safeEnd behavior.
+function effectiveEndForJump(video: HTMLVideoElement): number {
+  try {
+    const seekEnd = getSeekableEnd(video);
+    let bufEnd = 0;
+    const r = video.buffered;
+    if (r && r.length > 0) {
+      try { bufEnd = r.end(r.length - 1); } catch { bufEnd = 0; }
+    }
+    const preferBufferedThreshold = 120; // seconds
+    if (Number.isFinite(bufEnd) && bufEnd > 0) {
+      if (!Number.isFinite(seekEnd) || seekEnd <= 0) return bufEnd;
+      if (seekEnd - bufEnd > preferBufferedThreshold) return bufEnd;
+    }
+    return Number.isFinite(seekEnd) && seekEnd > 0 ? seekEnd : (Number.isFinite(bufEnd) ? bufEnd : 0);
+  } catch {
+    return getSeekableEnd(video);
   }
 }
