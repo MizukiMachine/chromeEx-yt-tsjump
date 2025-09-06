@@ -6,6 +6,8 @@
 import { parseAndNormalize24h } from './timeparse';
 import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
 import * as calibration from './calibration';
+import { isAdActive } from './adsense';
+import { showToast } from '../ui/toast';
 // startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 
@@ -40,6 +42,10 @@ export function jumpToLocalTime(
   zone: string,
   opts: JumpOptions = {}
 ): JumpResult {
+  if (isAdActive()) {
+    showToast('An ad is playing, so seeking is paused.', 'warn');
+    return { ok: false, decision: 'parse-error', reason: 'ad-active' };
+  }
   const DEBUG = safeGetLocal('debug:jump') === '1';
   const parsed = parseAndNormalize24h(input);
   if (!parsed.ok) {

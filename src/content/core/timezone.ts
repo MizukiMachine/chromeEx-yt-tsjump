@@ -60,3 +60,41 @@ export function toEpochInZone(
 
   return { epochSec, ambiguous, gap, wall };
 }
+
+// ---- Helpers for UI labeling ----
+
+/**
+ * Get current UTC offset minutes for the zone (now), e.g. +540 for Asia/Tokyo
+ */
+export function getOffsetMinutesNow(zone: string): number {
+  const tz = Temporal.TimeZone.from(zone);
+  const inst = Temporal.Now.instant();
+  const ns = tz.getOffsetNanosecondsFor(inst);
+  // convert to minutes (ns -> s -> min)
+  return Math.trunc(ns / 1_000_000_000 / 60);
+}
+
+/** Format minutes into "+HH:MM" or "-HH:MM" */
+export function formatOffsetHM(mins: number): string {
+  const sign = mins >= 0 ? '+' : '-';
+  const a = Math.abs(mins);
+  const hh = Math.floor(a / 60).toString().padStart(2, '0');
+  const mm = (a % 60).toString().padStart(2, '0');
+  return `${sign}${hh}:${mm}`;
+}
+
+/** Human-friendly zone display name */
+export function displayNameForZone(zone: string): string {
+  const map: Record<string, string> = {
+    'Africa/Windhoek': 'Namibia:Windhoek',
+    'Africa/Nairobi': 'Kenya:Nairobi',
+  };
+  if (map[zone]) return map[zone];
+  // default: use last path component with spaces
+  try {
+    const last = zone.split('/').pop() || zone;
+    return last.replace(/_/g, ' ');
+  } catch {
+    return zone;
+  }
+}

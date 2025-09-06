@@ -30,6 +30,7 @@ let disposeMessageListener: (() => void) | null = null;
 let cardApi: CardAPI | null = null;
 let numericGuardAttached = false;
 let jumpBtnInserted = false;
+let controlsObserver: MutationObserver | null = null;
 
 /**
  * 初期化処理
@@ -161,6 +162,21 @@ function setupVideoObserver() {
             showToast('An ad is playing, so seeking is paused.', 'warn');
           }
         });
+      } catch {}
+
+      // コントロールバーの変化を監視してJumpボタンを維持
+      try {
+        if (!controlsObserver) {
+          controlsObserver = new MutationObserver(() => {
+            // ボタンが消えていたら再挿入
+    const exists = !!document.querySelector('.ytp-left-controls .ytp-longseek-jump, .ytp-right-controls .ytp-longseek-jump');
+            if (!exists) {
+              jumpBtnInserted = false;
+              ensureJumpButton();
+            }
+          });
+          controlsObserver.observe(document.documentElement, { childList: true, subtree: true });
+        }
       } catch {}
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
@@ -360,34 +376,41 @@ function ensureToast() {
 function ensureJumpButton() {
   if (jumpBtnInserted) return;
   try {
+    // 右端コントロールに配置。設定と字幕の間を狙う
     const controls = document.querySelector('.ytp-right-controls') as HTMLElement | null;
     if (!controls) {
-      // 後から現れることがあるため軽く再試行
       setTimeout(ensureJumpButton, 1000);
       return;
     }
-    // 既に設置済みならスキップ
-    if (controls.querySelector('.ytp-button.yt-longseek-jump')) {
+    if (controls.querySelector('.ytp-button.ytp-longseek-jump')) {
       jumpBtnInserted = true;
       return;
     }
     const btn = document.createElement('button');
-    btn.className = 'ytp-button yt-longseek-jump';
+    btn.className = 'ytp-button ytp-longseek-jump';
+    btn.type = 'button';
     btn.title = 'Jump to local time';
     btn.ariaLabel = 'Jump to local time';
-    // シンプルな時計風アイコン文字（YouTube標準に近い見た目は後でSVG化可能）
-    btn.textContent = '⏱';
-    btn.style.fontSize = '16px';
-    btn.style.lineHeight = '24px';
-    btn.style.width = '36px';
-    btn.style.textAlign = 'center';
+    btn.textContent = 'Jump';
+    btn.style.height = '36px';
+    btn.style.lineHeight = '36px';
+    btn.style.padding = '0 8px';
+    btn.style.fontSize = '12px';
+    btn.style.fontWeight = 'bold';
+    btn.style.color = '#fff';
     btn.addEventListener('click', () => {
-      try {
-        cardApi?.toggle();
-        // 開いたら入力へフォーカスはcard側が行う
-      } catch {}
+      try { cardApi?.toggle(); } catch {}
     });
-    controls.insertBefore(btn, controls.firstChild);
+    const settingsBtn = controls.querySelector('.ytp-settings-button') as HTMLElement | null;
+    const ccBtn = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
+    if (ccBtn && ccBtn.parentElement === controls) {
+      controls.insertBefore(btn, ccBtn);
+    } else if (settingsBtn && settingsBtn.parentElement === controls) {
+      if (settingsBtn.nextSibling) controls.insertBefore(btn, settingsBtn.nextSibling);
+      else controls.appendChild(btn);
+    } else {
+      controls.appendChild(btn);
+    }
     jumpBtnInserted = true;
   } catch {
     // no-op

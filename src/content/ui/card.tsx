@@ -1,6 +1,7 @@
 import { render, h } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
+import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
+import { t, getLang } from '../i18n'
 import { jumpToLocalTime } from '../core/jump'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
@@ -27,12 +28,25 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
   function App() {
     // 状態
-    const [open, setOpen] = useState(localStorage.getItem(KEY_OPEN) === '1')
+    // 既定は閉じた状態から開始（過去の保存は無視）
+    const [open, setOpen] = useState(false)
     const [input, setInput] = useState('')
     const [zone, setZone] = useState(localStorage.getItem(KEY_TZ) || DEFAULT_ZONE)
-    const [status, setStatus] = useState<string>('')
+    // ステータス表示は廃止（カード内メッセージを出さない）
     const inputRef = useRef<HTMLInputElement>(null)
     const [typing, setTyping] = useState(false)
+    // ピン留め機能は一旦廃止（オン/オフのみ）
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(() => {
+      try { const raw = localStorage.getItem('card:pos'); if (raw) return JSON.parse(raw) } catch {}
+      return null
+    })
+    const posRef = useRef<{ x:number; y:number } | null>(pos)
+    useEffect(() => { posRef.current = pos }, [pos])
+    const [showHelp, setShowHelp] = useState(false)
+    const [lang, setLang] = useState(getLang())
+    const [zonesOpen, setZonesOpen] = useState(false)
+    const zonesBtnRef = useRef<HTMLButtonElement>(null)
+    const cardRef = useRef<HTMLDivElement>(null)
     // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
@@ -86,19 +100,78 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       }
     }, [])
 
+    // 無操作フェードは廃止（シンプル運用）
+
+    // 外側クリックで閉じる
+    useEffect(() => {
+      const el = cardRef.current
+      if (!el) return
+      const root = (el.getRootNode && el.getRootNode()) as ShadowRoot | Document
+      const onDown = (e: Event) => {
+        if (!open) return
+        const path = (e as any).composedPath ? (e as any).composedPath() : []
+        const inside = path.includes(el)
+        if (!inside) { setOpen(false); setZonesOpen(false) }
+      }
+      root.addEventListener('mousedown', onDown as any, true)
+      return () => root.removeEventListener('mousedown', onDown as any, true)
+    }, [open])
+
+    // 初回位置（Jumpボタン上・右寄り or 右下）。字幕帯90pxを避ける
+    useEffect(() => {
+      if (pos) return
+      const btn = document.querySelector('.ytp-right-controls .yt-longseek-jump') as HTMLElement | null
+      const r = btn?.getBoundingClientRect()
+      const vw = window.innerWidth, vh = window.innerHeight
+      let x = vw - 320, y = Math.max(0, vh - 200 - 90) // 右下寄り、字幕帯回避
+      if (r) { x = Math.min(vw - 300, Math.max(0, r.right - 260)); y = Math.max(0, r.top - 140) }
+      setPos({ x, y }); savePos({ x, y })
+    }, [])
+
+    function savePos(p: { x:number; y:number }) {
+      try { localStorage.setItem('card:pos', JSON.stringify(p)) } catch {}
+    }
+
+    // ドラッグ
+    useEffect(() => {
+      const el = cardRef.current
+      if (!el) return
+      const draggingRef = { current: false }
+      let sx = 0, sy = 0
+      let startX = 0, startY = 0
+      const onDown = (e: MouseEvent) => {
+        const target = e.target as HTMLElement
+        if (!(target && (target as HTMLElement).closest('.yt-card-header'))) return
+        draggingRef.current = true
+        sx = e.clientX; sy = e.clientY
+        const p = posRef.current
+        startX = p?.x ?? 0; startY = p?.y ?? 0
+        e.preventDefault()
+      }
+      const onMove = (e: MouseEvent) => {
+        if (!draggingRef.current) return
+        const nx = startX + (e.clientX - sx)
+        const ny = startY + (e.clientY - sy)
+        const vw = window.innerWidth, vh = window.innerHeight
+        const clamped = { x: Math.min(vw - 40, Math.max(0, nx)), y: Math.min(vh - 40, Math.max(0, ny)) }
+        setPos(clamped); savePos(clamped)
+      }
+      const onUp = () => { draggingRef.current = false }
+      el.addEventListener('mousedown', onDown)
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+      return () => { el.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+    }, [])
+
     // 提交
     async function onSubmit(e?: Event) {
       e?.preventDefault()
       const v = getVideo()
       if (!v) {
-        setStatus('No video found')
         return
       }
       const r = jumpToLocalTime(v, input.trim(), zone)
-      if (!r.ok) {
-        setStatus(r.reason || 'Failed')
-      } else {
-        setStatus(r.decision.replace('-', ' '))
+      if (r.ok) {
         // 成功したら入力欄をクリア
         setInput('')
       }
@@ -114,18 +187,48 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
     // 表示
     const display = open ? '' : 'none'
+    const stylePos: any = pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' } : { right: '24px', bottom: '100px' }
     return (
-      <div id="yt-card" onKeyDownCapture={(e: any) => e.stopPropagation()} onKeyUpCapture={(e: any) => e.stopPropagation()} style={{
-        position: 'fixed', bottom: '24px', right: '24px', zIndex: '2147483647',
-        background: 'rgba(17,17,17,.96)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
-        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '280px', pointerEvents: 'auto', display
+      <div id="yt-card" ref={cardRef} onKeyDownCapture={(e: any) => e.stopPropagation()} onKeyUpCapture={(e: any) => e.stopPropagation()} style={{
+        position: 'fixed', zIndex: '2147483647',
+        background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
+        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '360px', pointerEvents: 'auto', display,
+        opacity: .85,
+        ...stylePos
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-          <strong style={{ fontSize: '13px' }}>Jump to local time</strong>
-          <button onClick={() => api.close()} title="Close" style={{ marginLeft: 'auto', background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
+        {/* tools row (no title) */}
+        <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
+          <div class="yt-drag" style={{ width:'16px', height:'16px', cursor:'move', opacity:.3 }}>⋮</div>
+          <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
+            <button onClick={() => setShowHelp((v) => !v)} title="Help" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
+            <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { localStorage.setItem('lang', next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
+            <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
+          </div>
         </div>
-        <form onSubmit={onSubmit as any}>
-          <input
+        {showHelp && (
+          <div style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5 }}>
+            {t('help_text').split('\n').map((line) => (<>
+              {line}
+              <br/>
+            </>))}
+          </div>
+        )}
+        <form onSubmit={onSubmit as any} style={{ position: 'relative' }}>
+          <style>{`
+            .yt-dd { position: relative; }
+            .yt-dd-btn { width: 100%; text-align: left; background:#111; color:#fff; border:1px solid #444; border-radius:6px; padding:6px 30px 6px 8px; cursor:pointer; font-size:12px; }
+            .yt-dd-btn:after { content:'▾'; position:absolute; right:8px; top:50%; transform:translateY(-50%); opacity:.8 }
+            .yt-dd-menu { position:absolute; left:0; right:0; top:100%; margin-top:4px; background:#161616; border:1px solid #444; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.4); max-height:260px; overflow:auto; z-index: 10; }
+            .yt-dd-item { padding:8px 10px; color:#fff; cursor:pointer; font-size:14px; }
+            .yt-dd-item-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+            .yt-dd-item-row .left { display:flex; align-items:center; gap:6px; }
+            .yt-dd-item .tick { width:14px; text-align:center; opacity:.9 }
+            .yt-dd-item .badge { background:#222; border:1px solid #444; color:#ddd; border-radius:6px; padding:1px 6px; font-size:11px; }
+            .yt-dd-item:hover { background:#3a3a3a; }
+            .yt-dd-group { padding:6px 10px; color:#aaa; font-size:11px; }
+          `}</style>
+          <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+            <input
             ref={inputRef}
             value={input}
             onInput={(e: any) => {
@@ -139,21 +242,36 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             }}
             inputMode="numeric"
             pattern="[0-9:]*"
-            placeholder="HH:mm or HHmm"
+            placeholder={'HH:mm:ss or HHmmss'}
             spellcheck={false}
-            style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none' }}
-          />
-          <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center' }}>
-            <select value={zone} onChange={(e: any) => setZone(e.currentTarget.value)} style={{ flex: 1, padding: '6px 8px', background: '#111', color: '#fff', border: '1px solid #444', borderRadius: '6px' }}>
-              {mru.length > 0 && <optgroup label="Recent">{mru.map((z) => <option value={z}>{z}</option>)}</optgroup>}
-              <optgroup label="Zones">{others.map((z) => <option value={z}>{z}</option>)}</optgroup>
-            </select>
-            <button type="submit" style={{ padding: '6px 10px', borderRadius: '6px', border: 0, background: '#2563eb', color: '#fff', cursor: 'pointer' }}>Jump</button>
+            style={{ flex:'1 1 auto', minWidth:0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
+            />
+            <button type="submit" style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #444', background: 'rgba(17,17,17,.92)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto' }}>Jump</button>
+          </div>
+          {/* TZ selector (small line, text smaller than main) */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center', width: '100%' }}>
+            <div class="yt-dd" style={{ flex:'1 1 auto', minWidth:0 }}>
+              <button ref={zonesBtnRef} type="button" class="yt-dd-btn" style={{ fontSize:'11px' }} onClick={() => setZonesOpen(v=>!v)}>{labelTZ(zone)}</button>
+              {zonesOpen && (
+                <div class="yt-dd-menu" onMouseDown={(e: any) => e.stopPropagation()}>
+                  {mru.length > 0 && <div class="yt-dd-group">{lang === 'ja' ? '最近使用したもの' : 'Recent'}</div>}
+                  {mru.map((z) => (
+                    <div class="yt-dd-item" onClick={() => { setZone(z); setZonesOpen(false) }}>
+                      <div class="yt-dd-item-row"><span>{labelTZName(z)}</span><span class="badge">{labelTZOff(z)}</span></div>
+                    </div>
+                  ))}
+                  <div class="yt-dd-group">{lang === 'ja' ? 'タイムゾーン' : 'Zones'}</div>
+                  {others.map((z) => (
+                    <div class="yt-dd-item" onClick={() => { setZone(z); setZonesOpen(false) }}>
+                      <div class="yt-dd-item-row"><span>{labelTZName(z)}</span><span class="badge">{labelTZOff(z)}</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </form>
-        {status && <div style={{ marginTop: '6px', fontSize: '12px', color: '#bbb' }}>{status}</div>}
-        {/* シンプル運用のため、補助UIは非表示 */}
-        <div style={{ marginTop: '6px', fontSize: '11px', color: '#aaa' }}>Press Alt+Shift+J to toggle</div>
+        {/* footer helper text removed; use ? button for help */}
       </div>
     )
   }
@@ -161,4 +279,74 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
   render(h(App, {}), host)
 
   return api
+}
+
+function labelTZ(z: string): string {
+  try {
+    const lang = getLang()
+    const jpMap: Record<string,string> = {
+      'Asia/Tokyo': '日本:東京',
+      'Asia/Seoul': '韓国:ソウル',
+      'Europe/Amsterdam': 'オランダ:アムステルダム',
+      'Africa/Windhoek': 'ナミビア:ウィントフック',
+      'Africa/Nairobi': 'ケニア:ナイロビ',
+      'America/New_York': '米国:ニューヨーク',
+      'America/Los_Angeles': '米国:ロサンゼルス',
+      'Pacific/Honolulu': '米国:ホノルル',
+      'Europe/Copenhagen': 'デンマーク:コペンハーゲン',
+      'Europe/London': '英国:ロンドン',
+      'Europe/Berlin': 'ドイツ:ベルリン',
+      'Europe/Rome': 'イタリア:ローマ',
+      'Australia/Sydney': '豪州:シドニー',
+      'Asia/Singapore': 'シンガポール',
+      'UTC': 'UTC:UTC',
+    }
+    const enMap: Record<string,string> = {
+      'Asia/Tokyo': 'Japan:Tokyo',
+      'Asia/Seoul': 'Korea:Seoul',
+      'Europe/Amsterdam': 'Netherlands:Amsterdam',
+      'Africa/Windhoek': 'Namibia:Windhoek',
+      'Africa/Nairobi': 'Kenya:Nairobi',
+      'America/New_York': 'USA:New York',
+      'America/Los_Angeles': 'USA:Los Angeles',
+      'Pacific/Honolulu': 'USA:Honolulu',
+      'Europe/Copenhagen': 'Denmark:Copenhagen',
+      'Europe/London': 'UK:London',
+      'Europe/Berlin': 'Germany:Berlin',
+      'Europe/Rome': 'Italy:Rome',
+      'Australia/Sydney': 'Australia:Sydney',
+      'Asia/Singapore': 'Singapore:Singapore',
+      'UTC': 'UTC:UTC',
+    }
+    const base = lang === 'ja' ? (jpMap[z] || displayNameForZone(z)) : (enMap[z] || displayNameForZone(z))
+    const off = formatOffsetHM(getOffsetMinutesNow(z))
+    return `${base} (${off})`
+  } catch {
+    return z
+  }
+}
+
+function labelTZName(z: string): string {
+  try {
+    const lang = getLang()
+    const jpMap: Record<string,string> = {
+      'Asia/Tokyo': '日本:東京', 'Asia/Seoul': '韓国:ソウル', 'Europe/Amsterdam': 'オランダ:アムステルダム',
+      'Africa/Windhoek': 'ナミビア:ウィントフック', 'Africa/Nairobi': 'ケニア:ナイロビ', 'America/New_York': '米国:ニューヨーク',
+      'America/Los_Angeles': '米国:ロサンゼルス', 'Pacific/Honolulu': '米国:ホノルル', 'Europe/Copenhagen': 'デンマーク:コペンハーゲン',
+      'Europe/London': '英国:ロンドン', 'Europe/Berlin': 'ドイツ:ベルリン', 'Europe/Rome': 'イタリア:ローマ',
+      'Australia/Sydney': '豪州:シドニー', 'Asia/Singapore': 'シンガポール', 'UTC': 'UTC:UTC',
+    }
+    const enMap: Record<string,string> = {
+      'Asia/Tokyo': 'Japan:Tokyo', 'Asia/Seoul': 'Korea:Seoul', 'Europe/Amsterdam': 'Netherlands:Amsterdam',
+      'Africa/Windhoek': 'Namibia:Windhoek', 'Africa/Nairobi': 'Kenya:Nairobi', 'America/New_York': 'USA:New York',
+      'America/Los_Angeles': 'USA:Los Angeles', 'Pacific/Honolulu': 'USA:Honolulu', 'Europe/Copenhagen': 'Denmark:Copenhagen',
+      'Europe/London': 'UK:London', 'Europe/Berlin': 'Germany:Berlin', 'Europe/Rome': 'Italy:Rome', 'Australia/Sydney': 'Australia:Sydney',
+      'Asia/Singapore': 'Singapore:Singapore', 'UTC': 'UTC:UTC',
+    }
+    return lang === 'ja' ? (jpMap[z] || displayNameForZone(z)) : (enMap[z] || displayNameForZone(z))
+  } catch { return z }
+}
+
+function labelTZOff(z: string): string {
+  try { return formatOffsetHM(getOffsetMinutesNow(z)) } catch { return '+00:00' }
 }
