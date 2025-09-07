@@ -11,6 +11,7 @@ import { showToast } from '../ui/toast';
 import { getString } from '../store/local';
 // startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
+import { logJump } from '../events/emit';
 
 export interface JumpOptions {
   date?: YMD;       // テストや特殊用途で日付を固定
@@ -147,6 +148,7 @@ export function jumpToLocalTime(
       // eslint-disable-next-line no-console
       console.debug('[Jump] seek-in-range', r);
     }
+    try { logJump({ decision: 'seek-in-range', input, zone, normalized: parsed.normalized, epoch: E_target, result: r, flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap } }); } catch {}
     return {
       ok: true,
       decision: 'seek-in-range',
@@ -167,6 +169,7 @@ export function jumpToLocalTime(
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-end', { dStart, dEnd, r });
     }
+    try { logJump({ decision: 'jump-end', input, zone, normalized: parsed.normalized, epoch: E_target, result: r, distances: { dStart, dEnd }, flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap } }); } catch {}
     return {
       ok: true,
       decision: 'jump-end',
@@ -182,6 +185,7 @@ export function jumpToLocalTime(
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-start', { dStart, dEnd, r });
     }
+    try { logJump({ decision: 'jump-start', input, zone, normalized: parsed.normalized, epoch: E_target, result: r, distances: { dStart, dEnd }, flags: { ambiguous: best.tz.ambiguous, gap: best.tz.gap } }); } catch {}
     return {
       ok: true,
       decision: 'jump-start',

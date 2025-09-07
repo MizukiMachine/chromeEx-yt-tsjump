@@ -11,6 +11,8 @@ import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
 import { getBool, setBool, Keys } from './store/local';
+import { mountDebug, type DebugAPI } from './ui/debug';
+import { logStatus, logAd } from './events/emit';
 
 function frameTag(): string {
   try {
@@ -30,6 +32,7 @@ let hasShadowRoot = false;
 let disposeMessageListener: (() => void) | null = null;
 let cardApi: CardAPI | null = null;
 let numericGuardAttached = false;
+let debugApi: DebugAPI | null = null;
 // deprecated flags (no longer used)
 // let jumpBtnInserted = false;
 // let controlsObserver: MutationObserver | null = null;
@@ -53,6 +56,7 @@ function initialize() {
 
   // ステータス送信
   sendStatusToBackground('ready').catch(() => {});
+  try { logStatus('ready'); } catch {}
 }
 
 /**
@@ -153,6 +157,7 @@ function setupVideoObserver() {
       ensureCard();
       ensureToast();
       ensureShortcutHelp();
+      ensureDebug();
       ensureJumpButton();
       // startEpoch 検出は廃止（シンプル化）
       console.log(
@@ -165,6 +170,7 @@ function setupVideoObserver() {
           if (active) {
             showToast('An ad is playing, so seeking is paused.', 'warn');
           }
+          try { logAd(active); } catch {}
         });
       } catch {}
 
@@ -172,6 +178,7 @@ function setupVideoObserver() {
       // 旧コントロール監視は撤去（下で全体MOを起動）
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
+      try { logStatus('video-found', { reason }); } catch {}
       // 初期キャリブレーションはデフォルト無効
       // 計測が必要なときだけフラグで明示的に有効化（store/local 経由）
       // 例: setBool(Keys.CalAuto, true) / setBool(Keys.DebugCal, true)
@@ -186,6 +193,7 @@ function setupVideoObserver() {
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
+      try { logStatus('video-lost', { reason }); } catch {}
     }
   });
 }
@@ -220,6 +228,7 @@ function handleCommand(command: string) {
   }
   
   console.log(`[Content:${frameTag()}] Handling command ${command}`);
+  try { logStatus('command', { command }); } catch {}
   
   switch (command) {
     case 'seek-backward-60':
@@ -361,6 +370,25 @@ function ensureToast() {
   const sr = host?.shadowRoot;
   if (!sr) return;
   initToast(sr);
+}
+
+// DebugパネルをShadowRootに初期化（Alt+Shift+L で開閉）
+function ensureDebug() {
+  if (debugApi) return;
+  const host = document.getElementById('yt-longseek-tsjump-root');
+  const sr = host?.shadowRoot;
+  if (!sr) return;
+  debugApi = mountDebug(sr, () => currentVideo);
+  const onKey = (e: KeyboardEvent) => {
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.toUpperCase() === 'L') {
+      // 入力中は無視
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      debugApi?.toggle();
+    }
+  };
+  window.addEventListener('keydown', onKey);
 }
 
 // YouTubeコントロールバー右端にJumpボタンを挿入（失敗しても致命ではない）

@@ -1,3 +1,5 @@
+import { logSeek } from '../events/emit';
+
 /**
  * シーク基盤とガード
  * GUARD=3s 端での意図しない停止を防ぐ
@@ -129,7 +131,9 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
   } catch {
     // 稀に範囲外で例外が出るため無視
   }
-  return { ...cr, requested: t, previous: prev };
+  const result = { ...cr, requested: t, previous: prev };
+  try { logSeek({ ...result }); } catch {}
+  return result;
 }
 
 /**
