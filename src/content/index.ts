@@ -385,7 +385,7 @@ function ensureJumpButton() {
     }
     const existing = controls.querySelector('.ytp-button.ytp-longseek-jump') as HTMLButtonElement | null;
     if (existing) {
-      try { applyJumpButtonStyle(existing, controls); } catch {}
+      try { applyJumpButtonStyle(existing); } catch {}
       jumpBtnInserted = true;
       return;
     }
@@ -396,7 +396,7 @@ function ensureJumpButton() {
     btn.ariaLabel = 'Jump to local time';
     // 初期テキスト（後続のスタイルで縦中央に調整）
     btn.textContent = 'Jump';
-    applyJumpButtonStyle(btn, controls);
+    applyJumpButtonStyle(btn);
     btn.addEventListener('click', () => {
       try { cardApi?.toggle(); } catch {}
     });
@@ -417,52 +417,26 @@ function ensureJumpButton() {
 }
 
 // 標準コントロールの高さ/ベースラインに合わせてJumpボタンにスタイルを適用
-function applyJumpButtonStyle(btn: HTMLElement, controls: HTMLElement): void {
-  const baseNeighbor =
-    (controls.querySelector('.ytp-subtitles-button') as HTMLElement | null) ||
-    (controls.querySelector('.ytp-settings-button') as HTMLElement | null) ||
-    (controls.querySelector('.ytp-button') as HTMLElement | null);
-
-  // 既定高さ
-  let h = '36px';
-  if (baseNeighbor) {
-    try {
-      const cs = window.getComputedStyle(baseNeighbor);
-      if (cs.height && cs.height !== 'auto') h = cs.height;
-    } catch {}
-  }
-  // ボタンは横幅固定しない（押し出しを避ける）。隣接高さに合わせ縦中央に配置
-  btn.style.display = 'inline-flex';
-  btn.style.alignItems = 'center';
-  btn.style.justifyContent = 'center';
-  btn.style.height = h;
-  btn.style.lineHeight = 'normal';
-  btn.style.padding = '0 10px';
-  btn.style.boxSizing = 'border-box';
-  btn.style.verticalAlign = 'middle';
-  btn.style.position = 'relative';
-  btn.style.transform = '';
-  btn.style.color = '#fff';
-  btn.style.fontSize = '12px';
+function applyJumpButtonStyle(btn: HTMLElement): void {
+  // 最小限のスタイルだけを適用（レイアウトへの影響を極小化）
+  btn.classList.add('ytp-longseek-jump');
   btn.setAttribute('title', 'Jump to local time');
   btn.setAttribute('aria-label', 'Jump to local time');
 
-  // ネイティブと余白を揃える（必要に応じて微調整）
+  // 既存の補助ラッパーは除去し、テキストのみとする
   try {
-    if (baseNeighbor) {
-      const cs = window.getComputedStyle(baseNeighbor);
-      btn.style.marginLeft = cs.marginLeft;
-      btn.style.marginRight = cs.marginRight;
-    } else {
-      btn.style.margin = '0 6px';
-    }
-  } catch {
-    btn.style.margin = '0 6px';
-  }
-
-  // 以前のアイコンラッパーが残っていたら除去（他要素に影響を与えないよう防御）
-  try {
-    const oldWrap = btn.querySelector('.ytp-svg-icon') as HTMLElement | null;
+    const oldWrap = btn.querySelector('.ytp-svg-icon, .ytp-longseek-icon, .ytp-longseek-label') as HTMLElement | null;
     if (oldWrap) oldWrap.remove();
   } catch {}
+  if (!btn.textContent || !btn.textContent.trim()) btn.textContent = 'Jump';
+
+  // 最小限の見た目（YouTube既定に近い値）
+  btn.style.display = 'inline-block';
+  btn.style.padding = '0 10px';
+  btn.style.boxSizing = 'border-box';
+  btn.style.verticalAlign = 'middle';
+  btn.style.textAlign = 'center';
+  btn.style.color = '#fff';
+  btn.style.fontSize = '12px';
+  // 高さや line-height、margin のコピーは行わない（タイミング依存を避ける）
 }
