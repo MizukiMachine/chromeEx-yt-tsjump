@@ -10,6 +10,31 @@
   z-index: 2147483647 !important;  /* 最大値 */
 }
 
-/* Minimal scope: our button only, no layout overrides */
-#ytp-longseek-jump { margin: 0; padding: 0; }
-#ytp-longseek-jump svg { display: block; width: 100%; height: 100%; }
+/* Minimal scope: our button only (text label stabilized) */
+.html5-video-player .ytp-right-controls #ytp-jump {
+  display: inline-block;
+  vertical-align: top;
+  height: 100%;
+  padding: 0 6px;
+  margin: 0;
+  box-sizing: border-box;
+  font-size: 0;      /* kill outer strut */
+  white-space: nowrap;
+  color: inherit;
+}
+
+#ytp-jump .ytp-jump__inner {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+#ytp-jump .ytp-jump__label {
+  display: block;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: .02em;
+  position: relative;
+  top: 0; /* enable -1px if needed for big UI */
+}

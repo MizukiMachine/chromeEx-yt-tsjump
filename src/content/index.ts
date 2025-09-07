@@ -376,15 +376,15 @@ function ensureJumpButton() {
 function mountJumpButton(): void {
   const controls = document.querySelector('.html5-video-player .ytp-right-controls') as HTMLElement | null;
   if (!controls) return;
-  if (controls.querySelector('#ytp-longseek-jump')) return; // already
+  if (controls.querySelector('#ytp-jump')) return; // already
 
   const btn = document.createElement('button');
-  btn.className = 'ytp-button';
-  btn.id = 'ytp-longseek-jump';
+  btn.className = 'ytp-button ytp-jump';
+  btn.id = 'ytp-jump';
   btn.type = 'button';
-  btn.title = 'Jump to local time';
-  btn.setAttribute('aria-label', 'Jump to local time');
-  btn.innerHTML = '<svg viewBox="0 0 36 36" width="100%" height="100%" style="display:block;pointer-events:none" aria-hidden="true"><path fill="currentColor" d="M10 18h16v2H10zM18 10l6 6h-4v10h-4V16h-4z"/></svg>';
+  btn.title = 'Jump';
+  btn.setAttribute('aria-label', 'Jump');
+  btn.innerHTML = '<span class="ytp-jump__inner"><span class="ytp-jump__label">Jump</span></span>';
   btn.addEventListener('click', () => { try { cardApi?.toggle(); } catch {} });
 
   const afterNode = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
