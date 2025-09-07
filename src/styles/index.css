@@ -9,3 +9,7 @@
   /* フルスクリーン時でも表示されるように */
   z-index: 2147483647 !important;  /* 最大値 */
 }
+
+/* Minimal scope: our button only, no layout overrides */
+#ytp-longseek-jump { margin: 0; padding: 0; }
+#ytp-longseek-jump svg { display: block; width: 100%; height: 100%; }

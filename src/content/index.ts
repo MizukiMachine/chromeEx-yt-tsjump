@@ -29,8 +29,10 @@ let hasShadowRoot = false;
 let disposeMessageListener: (() => void) | null = null;
 let cardApi: CardAPI | null = null;
 let numericGuardAttached = false;
-let jumpBtnInserted = false;
-let controlsObserver: MutationObserver | null = null;
+// deprecated flags (no longer used)
+// let jumpBtnInserted = false;
+// let controlsObserver: MutationObserver | null = null;
+let controlsMO: MutationObserver | null = null;
 // Jumpボタンの整列は最小限のスタイルのみ（実測アラインは行わない）
 
 /**
@@ -166,19 +168,7 @@ function setupVideoObserver() {
       } catch {}
 
       // コントロールバーの変化を監視してJumpボタンを維持
-      try {
-        if (!controlsObserver) {
-          controlsObserver = new MutationObserver(() => {
-            // ボタンが消えていたら再挿入
-    const exists = !!document.querySelector('.ytp-left-controls .ytp-longseek-jump, .ytp-right-controls .ytp-longseek-jump');
-            if (!exists) {
-              jumpBtnInserted = false;
-              ensureJumpButton();
-            }
-          });
-          controlsObserver.observe(document.documentElement, { childList: true, subtree: true });
-        }
-      } catch {}
+      // 旧コントロール監視は撤去（下で全体MOを起動）
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
       // 初期キャリブレーションはデフォルト無効
@@ -375,68 +365,34 @@ function ensureToast() {
 
 // YouTubeコントロールバー右端にJumpボタンを挿入（失敗しても致命ではない）
 function ensureJumpButton() {
-  if (jumpBtnInserted) return;
-  try {
-    // 右端コントロールに配置。設定と字幕の間を狙う
-    const controls = document.querySelector('.ytp-right-controls') as HTMLElement | null;
-    if (!controls) {
-      setTimeout(ensureJumpButton, 1000);
-      return;
-    }
-    const existing = controls.querySelector('.ytp-button.ytp-longseek-jump') as HTMLButtonElement | null;
-    if (existing) {
-      try { applyJumpButtonStyle(existing); } catch {}
-      jumpBtnInserted = true;
-      return;
-    }
-    const btn = document.createElement('button');
-    btn.className = 'ytp-button ytp-longseek-jump';
-    btn.type = 'button';
-    btn.title = 'Jump to local time';
-    btn.ariaLabel = 'Jump to local time';
-    // 初期テキスト（後続のスタイルで縦中央に調整）
-    btn.textContent = 'Jump';
-    applyJumpButtonStyle(btn);
-    btn.addEventListener('click', () => {
-      try { cardApi?.toggle(); } catch {}
-    });
-    const settingsBtn = controls.querySelector('.ytp-settings-button') as HTMLElement | null;
-    const ccBtn = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
-    if (ccBtn && ccBtn.parentElement === controls) {
-      controls.insertBefore(btn, ccBtn);
-    } else if (settingsBtn && settingsBtn.parentElement === controls) {
-      if (settingsBtn.nextSibling) controls.insertBefore(btn, settingsBtn.nextSibling);
-      else controls.appendChild(btn);
-    } else {
-      controls.appendChild(btn);
-    }
-    jumpBtnInserted = true;
-  } catch {
-    // no-op
+  try { mountJumpButton(); } catch {}
+  // 軽量MutationObserverでSPA再描画に追随（重複挿入は防止）
+  if (!controlsMO) {
+    controlsMO = new MutationObserver(() => { try { mountJumpButton(); } catch {} });
+    try { controlsMO.observe(document.documentElement, { childList: true, subtree: true }); } catch {}
   }
 }
 
-// 標準コントロールの高さ/ベースラインに合わせてJumpボタンにスタイルを適用
-function applyJumpButtonStyle(btn: HTMLElement): void {
-  // 最小限のスタイルだけを適用（レイアウトへの影響を極小化）
-  btn.classList.add('ytp-longseek-jump');
-  btn.setAttribute('title', 'Jump to local time');
+function mountJumpButton(): void {
+  const controls = document.querySelector('.html5-video-player .ytp-right-controls') as HTMLElement | null;
+  if (!controls) return;
+  if (controls.querySelector('#ytp-longseek-jump')) return; // already
+
+  const btn = document.createElement('button');
+  btn.className = 'ytp-button';
+  btn.id = 'ytp-longseek-jump';
+  btn.type = 'button';
+  btn.title = 'Jump to local time';
   btn.setAttribute('aria-label', 'Jump to local time');
+  btn.innerHTML = '<svg viewBox="0 0 36 36" width="100%" height="100%" style="display:block;pointer-events:none" aria-hidden="true"><path fill="currentColor" d="M10 18h16v2H10zM18 10l6 6h-4v10h-4V16h-4z"/></svg>';
+  btn.addEventListener('click', () => { try { cardApi?.toggle(); } catch {} });
 
-  // 既存の補助ラッパーは除去し、テキストのみとする
-  try {
-    const oldWrap = btn.querySelector('.ytp-svg-icon, .ytp-longseek-icon, .ytp-longseek-label') as HTMLElement | null;
-    if (oldWrap) oldWrap.remove();
-  } catch {}
-  if (!btn.textContent || !btn.textContent.trim()) btn.textContent = 'Jump';
-
-  // 最小限の見た目（YouTube既定に近い値）
-  btn.style.display = 'inline-block';
-  btn.style.padding = '0 10px';
-  btn.style.boxSizing = 'border-box';
-  btn.style.verticalAlign = 'middle';
-  btn.style.textAlign = 'center';
-  btn.style.color = '#fff';
-  btn.style.fontSize = '12px';
-  // 高さや line-height、margin のコピーは行わない（タイミング依存を避ける）
+  const afterNode = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
+  const beforeNode = controls.querySelector('.ytp-settings-button') as HTMLElement | null;
+  if (afterNode && afterNode.nextSibling) controls.insertBefore(btn, afterNode.nextSibling);
+  else if (beforeNode) controls.insertBefore(btn, beforeNode);
+  else controls.appendChild(btn);
 }
+
+// 標準コントロールの高さ/ベースラインに合わせてJumpボタンにスタイルを適用
+// applyJumpButtonStyle は不要になった（ネイティブytp-buttonに完全相乗り）
