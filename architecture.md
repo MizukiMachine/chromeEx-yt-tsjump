@@ -24,7 +24,7 @@
 ## ■ データフロー
 
 1) ページ読み込み → content が Shadow DOM を作成し、`<video>` を検出
-2) 非ブロッキング校正開始（1 秒間隔で C をサンプリング）
+2) （任意）校正開始（1 秒間隔で C をサンプリング）。通常は必要時/デバッグ時のみ起動
 3) ユーザー操作（ショートカット／カード） → background の commands → content のハンドラ
 4) 入力 → 正規化 → TZ 変換 → `E_target` 算出 → `t_target = E_target − C` → 範囲判定 → seek
 5) 広告検知中は抑止。イベントや計算結果はログリングに保存、デバッグパネルとコンソールへ出力
@@ -98,11 +98,11 @@ UI 状態
 - `E_target = zonedDateTime.epochSeconds`
 
 ジャンプ決定
+- `E_target` は選択TZの「今日/昨日/明日」の3候補から選ぶ
+  - 範囲 `[E_start, E_end]`（`E_start = C + start`, `E_end = C + (end − GUARD)`）に含まれる候補があれば `E_end` に近い方
+  - 含まれない場合は区間への距離が最小の候補を選ぶ
 - `t_target = E_target − C`
-- 範囲 `[start, end − GUARD]` に含まれれば `seek(t_target)`
-- 範囲外なら距離比較（epoch 基準）
-  - `E_start = C + start`, `E_end = C + (end − GUARD)`
-  - `|E_target − E_end| <= |E_target − E_start|` なら `seek(end − GUARD)`、同距離は live edge 優先
+- 範囲 `[start, end − GUARD]` に含まれれば `seek(t_target)`。含まれない場合は端比較（`E`空間距離で近い端。同距離は live edge）
 
 広告検知
 - `.ad-showing`, `.ytp-ad-player-overlay`, `#player-ads` を監視
@@ -134,7 +134,7 @@ E2E（Playwright）
   - permissions: `commands`, `storage`, `scripting`, `activeTab`
   - host_permissions: `https://www.youtube.com/*`, `https://www.youtube-nocookie.com/*`
   - content_scripts: `all_frames: true`, `run_at: document_end`
-  - commands: Alt+Shift+Q/A/W/S
+  - commands: Alt+Shift+S/D/F/G
 - `npm run build` で zip 生成。ストア提出物を同梱
 
 ## ■ パフォーマンスとリソース
@@ -154,4 +154,3 @@ E2E（Playwright）
 - 任意分数の長時間シーク設定
 - より高度な広告検知の切替可能化
 - タイムゾーンのインポート/エクスポート
-

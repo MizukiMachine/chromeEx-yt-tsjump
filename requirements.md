@@ -40,8 +40,8 @@ FR-2 時刻ジャンプ（選択タイムゾーン）
 - 入力形式: `HH:mm`, `HH:mm:ss`, `HHmm`, `HHmmss`, `HH`（または `H`）※24 時間表記のみ。`HH` は「時のみ」で分秒は `:00` とみなす
 - 自動補正: 欠落秒は `:00`。分・秒が 60 以上は繰り上げ（例: `08:80` → `09:20:00`）。補正後に `HH>=24` は当日外
 - タイムゾーン: 入力カード右上で選択。既定は `Europe/Amsterdam`。MRU 先頭 5 件、残りはアルファベット順
-- 初期リスト: `Asia/Tokyo`, `Europe/Amsterdam`, `Africa/Windhoek`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Europe/Berlin`, `Australia/Sydney`, `UTC`, `Asia/Singapore`
-- 日付の決定: 選択 TZ の「今日」に入力時刻を結合
+- 初期リスト: `Asia/Tokyo`, `Europe/Amsterdam`, `Africa/Windhoek`, `America/New_York`, `America/Los_Angeles`, `Europe/London`, `Europe/Berlin`, `Europe/Rome`, `Australia/Sydney`, `UTC`, `Asia/Singapore`
+- 日付の決定: 選択 TZ の「今日/昨日/明日」の3候補を作成し、再生可能範囲 `[E_start, E_end]` に含まれる候補があれば `E_end` に近い方を選択。含まれない場合は区間への距離が最小の候補を選び、端比較へ進む
 - DST: ギャップは前方スナップ。曖昧は先に現れる時刻を採用
 - ジャンプ計算: `t_target = E_target − C`
 - 範囲外入力: epoch 基準で `E_start = C+start`, `E_end = C+(end−GUARD)` と比較し、近い方にジャンプ（同距離は live edge 優先）
