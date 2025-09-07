@@ -6,14 +6,14 @@ const dict: Record<Lang, Record<string, string>> = {
     jump_button: 'Jump',
     placeholder_time: 'HH:mm:ss or HHmmss',
     help_text:
-      'You can toggle the jump card with Alt+Shift+J.\nYou can customize shortcuts at chrome://extensions/shortcuts.',
+      '・ Toggle Jump panel: Alt+Shift+J\n・ Customize shortcuts: chrome://extensions/shortcuts',
   },
   ja: {
     jump_header: 'タイムスタンプへジャンプ',
     jump_button: 'Jump',
     placeholder_time: 'HH:mm:ss または HHmmss',
     help_text:
-      'Alt+Shift+J でも時刻ジャンプの表示/非表示を切り替えられます。\nショートカットは chrome://extensions/shortcuts で自由に設定できます。',
+     '・ [ Alt+Shift+J ] 操作パネルの表示/非表示を切り替え\n・ [ショートカットキー登録] chrome://extensions/shortcuts',
   },
 }
 
