@@ -132,7 +132,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       try { localStorage.setItem('card:pos', JSON.stringify(p)) } catch {}
     }
 
-    // ドラッグ
+    // ドラッグ（カード上のどこでも。入力やボタンなどのインタラクティブ要素は除外）
     useEffect(() => {
       const el = cardRef.current
       if (!el) return
@@ -141,7 +141,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       let startX = 0, startY = 0
       const onDown = (e: MouseEvent) => {
         const target = e.target as HTMLElement
-        if (!(target && (target as HTMLElement).closest('.yt-card-header'))) return
+        // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
+        const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
+        if (target && (target.closest(interactiveSel))) return
         draggingRef.current = true
         sx = e.clientX; sy = e.clientY
         const p = posRef.current
@@ -192,13 +194,21 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       <div id="yt-card" ref={cardRef} onKeyDownCapture={(e: any) => e.stopPropagation()} onKeyUpCapture={(e: any) => e.stopPropagation()} style={{
         position: 'fixed', zIndex: '2147483647',
         background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
-        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '360px', pointerEvents: 'auto', display,
+        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '300px', pointerEvents: 'auto', display,
         opacity: .85,
+        cursor: 'move',
         ...stylePos
       }}>
+        {/* 視覚フィードバック＆カーソル制御（ホバー時にわずかに持ち上げる） */}
+        <style>{`
+          #yt-card { transition: box-shadow .15s ease, transform .12s ease, background-color .15s ease; }
+          #yt-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.55); background: rgba(22,22,22,.96) !important; }
+          #yt-card:active { transform: translateY(0); }
+          #yt-card input, #yt-card textarea, #yt-card select { cursor: text; }
+          #yt-card button, #yt-card a, #yt-card .yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
+        `}</style>
         {/* tools row (no title) */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
-          <div class="yt-drag" style={{ width:'16px', height:'16px', cursor:'move', opacity:.3 }}>⋮</div>
           <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
             <button onClick={() => setShowHelp((v) => !v)} title="Help" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
             <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { localStorage.setItem('lang', next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
@@ -216,7 +226,24 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         <form onSubmit={onSubmit as any} style={{ position: 'relative' }}>
           <style>{`
             .yt-dd { position: relative; }
-            .yt-dd-btn { width: 100%; text-align: left; background:#111; color:#fff; border:1px solid #444; border-radius:6px; padding:6px 30px 6px 8px; cursor:pointer; font-size:12px; }
+            .yt-dd-btn {
+              width: 100%;
+              display: flex;
+              align-items: center;
+              box-sizing: border-box;
+              height: 30px; /* fixed for consistent card height across locales */
+              text-align: left;
+              background:#111;
+              color:#fff;
+              border:1px solid #444;
+              border-radius:6px;
+              padding:0 30px 0 8px; /* space for caret */
+              cursor:pointer;
+              font-size:12px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
             .yt-dd-btn:after { content:'▾'; position:absolute; right:8px; top:50%; transform:translateY(-50%); opacity:.8 }
             .yt-dd-menu { position:absolute; left:0; right:0; top:100%; margin-top:4px; background:#161616; border:1px solid #444; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.4); max-height:260px; overflow:auto; z-index: 10; }
             .yt-dd-item { padding:8px 10px; color:#fff; cursor:pointer; font-size:14px; }
