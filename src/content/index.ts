@@ -31,6 +31,7 @@ let cardApi: CardAPI | null = null;
 let numericGuardAttached = false;
 let jumpBtnInserted = false;
 let controlsObserver: MutationObserver | null = null;
+// Jumpボタンの整列は最小限のスタイルのみ（実測アラインは行わない）
 
 /**
  * 初期化処理
@@ -382,7 +383,9 @@ function ensureJumpButton() {
       setTimeout(ensureJumpButton, 1000);
       return;
     }
-    if (controls.querySelector('.ytp-button.ytp-longseek-jump')) {
+    const existing = controls.querySelector('.ytp-button.ytp-longseek-jump') as HTMLButtonElement | null;
+    if (existing) {
+      try { applyJumpButtonStyle(existing, controls); } catch {}
       jumpBtnInserted = true;
       return;
     }
@@ -391,13 +394,9 @@ function ensureJumpButton() {
     btn.type = 'button';
     btn.title = 'Jump to local time';
     btn.ariaLabel = 'Jump to local time';
+    // 初期テキスト（後続のスタイルで縦中央に調整）
     btn.textContent = 'Jump';
-    btn.style.height = '36px';
-    btn.style.lineHeight = '36px';
-    btn.style.padding = '0 8px';
-    btn.style.fontSize = '12px';
-    btn.style.fontWeight = 'bold';
-    btn.style.color = '#fff';
+    applyJumpButtonStyle(btn, controls);
     btn.addEventListener('click', () => {
       try { cardApi?.toggle(); } catch {}
     });
@@ -415,4 +414,55 @@ function ensureJumpButton() {
   } catch {
     // no-op
   }
+}
+
+// 標準コントロールの高さ/ベースラインに合わせてJumpボタンにスタイルを適用
+function applyJumpButtonStyle(btn: HTMLElement, controls: HTMLElement): void {
+  const baseNeighbor =
+    (controls.querySelector('.ytp-subtitles-button') as HTMLElement | null) ||
+    (controls.querySelector('.ytp-settings-button') as HTMLElement | null) ||
+    (controls.querySelector('.ytp-button') as HTMLElement | null);
+
+  // 既定高さ
+  let h = '36px';
+  if (baseNeighbor) {
+    try {
+      const cs = window.getComputedStyle(baseNeighbor);
+      if (cs.height && cs.height !== 'auto') h = cs.height;
+    } catch {}
+  }
+  // ボタンは横幅固定しない（押し出しを避ける）。隣接高さに合わせ縦中央に配置
+  btn.style.display = 'inline-flex';
+  btn.style.alignItems = 'center';
+  btn.style.justifyContent = 'center';
+  btn.style.height = h;
+  btn.style.lineHeight = 'normal';
+  btn.style.padding = '0 10px';
+  btn.style.boxSizing = 'border-box';
+  btn.style.verticalAlign = 'middle';
+  btn.style.position = 'relative';
+  btn.style.transform = '';
+  btn.style.color = '#fff';
+  btn.style.fontSize = '12px';
+  btn.setAttribute('title', 'Jump to local time');
+  btn.setAttribute('aria-label', 'Jump to local time');
+
+  // ネイティブと余白を揃える（必要に応じて微調整）
+  try {
+    if (baseNeighbor) {
+      const cs = window.getComputedStyle(baseNeighbor);
+      btn.style.marginLeft = cs.marginLeft;
+      btn.style.marginRight = cs.marginRight;
+    } else {
+      btn.style.margin = '0 6px';
+    }
+  } catch {
+    btn.style.margin = '0 6px';
+  }
+
+  // 以前のアイコンラッパーが残っていたら除去（他要素に影響を与えないよう防御）
+  try {
+    const oldWrap = btn.querySelector('.ytp-svg-icon') as HTMLElement | null;
+    if (oldWrap) oldWrap.remove();
+  } catch {}
 }
