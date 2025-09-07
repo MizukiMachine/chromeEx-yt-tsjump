@@ -35,6 +35,9 @@ export default defineConfig({
           type: 'module'
         },
         
+        // オプションページ
+        options_page: 'public/options.html',
+        
         // コンテンツスクリプト
         content_scripts: [
           {
@@ -98,7 +101,7 @@ export default defineConfig({
           '128': 'icons/icon-128.png'
         }
       }),
-      additionalInputs: ['src/content/index.ts', 'src/background/index.ts'],
+      additionalInputs: ['src/content/index.ts', 'src/background/index.ts', 'src/options/index.tsx'],
     })
   ],
   

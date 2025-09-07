@@ -4,6 +4,7 @@ import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displa
 import { t, getLang } from '../i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, setJSON, addTZMru, Keys } from '../store/local'
+import { clampToViewport } from './layout'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -41,6 +42,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const [showHelp, setShowHelp] = useState(false)
     const [lang, setLang] = useState(getLang())
     const [zonesOpen, setZonesOpen] = useState(false)
+    const [presets, setPresets] = useState<string[]>(PRESET_ZONES)
     const zonesBtnRef = useRef<HTMLButtonElement>(null)
     const cardRef = useRef<HTMLDivElement>(null)
     // 補助状態やデバッグ表示は撤去
@@ -50,9 +52,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       const rawMru = getJSON<string[]>(Keys.TzMru) ?? []
       const uniq = Array.from(new Set([zone, ...rawMru]))
       const mru5 = uniq.filter(Boolean).slice(0, 5)
-      const others = PRESET_ZONES.filter((z) => !mru5.includes(z))
+      const others = presets.filter((z) => !mru5.includes(z))
       return { mru: mru5, others }
-    }, [zone])
+    }, [zone, presets])
 
     // APIを外へ
     useEffect(() => {
@@ -93,6 +95,35 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     }, [])
 
     // 無操作フェードは廃止（シンプル運用）
+
+    // 画面リサイズで位置をクランプ
+    useEffect(() => {
+      const onResize = () => {
+        setPos((p) => {
+          if (!p) return p
+          const clamped = clampToViewport(p, window.innerWidth, window.innerHeight)
+          if (clamped.x !== p.x || clamped.y !== p.y) { savePos(clamped) }
+          return clamped
+        })
+      }
+      window.addEventListener('resize', onResize)
+      return () => window.removeEventListener('resize', onResize)
+    }, [])
+
+    // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
+    useEffect(() => {
+      try {
+        const anyChrome = (globalThis as any).chrome
+        if (!anyChrome?.storage?.local) return
+        anyChrome.storage.local.get(['tz:preset'], (res: any) => {
+          const arr = res?.['tz:preset']
+          if (Array.isArray(arr) && arr.length > 0) {
+            const uniq = Array.from(new Set(arr.filter((x) => typeof x === 'string' && x)))
+            if (uniq.length > 0) setPresets(uniq)
+          }
+        })
+      } catch {}
+    }, [])
 
     // 外側クリックで閉じる
     useEffect(() => {

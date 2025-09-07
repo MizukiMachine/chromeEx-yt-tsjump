@@ -10,7 +10,7 @@ import { mountCard, type CardAPI } from './ui/card';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
-import { getBool, setBool, Keys } from './store/local';
+import { getBool, setBool, setString, Keys } from './store/local';
 import { mountDebug, type DebugAPI } from './ui/debug';
 import { logStatus, logAd } from './events/emit';
 
@@ -47,6 +47,8 @@ function initialize() {
   isInitialized = true;
   
   console.log(`[Content:${frameTag()}] Initializing...`);
+  // 可能なら options（chrome.storage.local）から初期値を取り込み
+  loadOptionsFromStorage();
   
   // 動画要素の出現と差し替えを監視
   setupVideoObserver();
@@ -424,3 +426,18 @@ function mountJumpButton(): void {
 
 // 標準コントロールの高さ/ベースラインに合わせてJumpボタンにスタイルを適用
 // applyJumpButtonStyle は不要になった（ネイティブytp-buttonに完全相乗り）
+// optionsページで保存された既定値を localStorage ラッパに反映（片方向）
+function loadOptionsFromStorage() {
+  try {
+    const anyChrome = (globalThis as any).chrome
+    if (!anyChrome?.storage?.local) return
+    anyChrome.storage.local.get(['cfg:cal:auto','debug:cal','lang','shortcutsHelpDismissed'], (res: any) => {
+      // Bool系は '1'|'0' で保存されている前提にも、boolean保存にも両対応
+      const normalize = (v: any) => v === '1' || v === 1 || v === true
+      try { if (res && res['cfg:cal:auto'] != null) setBool(Keys.CalAuto, normalize(res['cfg:cal:auto'])) } catch {}
+      try { if (res && res['debug:cal'] != null) setBool(Keys.DebugCal, normalize(res['debug:cal'])) } catch {}
+      try { if (typeof res?.['lang'] === 'string') setString(Keys.Lang, res['lang']) } catch {}
+      try { if (res && res['shortcutsHelpDismissed'] != null) setBool(Keys.ShortcutsHelpDismissed, normalize(res['shortcutsHelpDismissed'])) } catch {}
+    })
+  } catch {}
+}
