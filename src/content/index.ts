@@ -10,6 +10,7 @@ import { mountCard, type CardAPI } from './ui/card';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
+import { getBool, setBool, Keys } from './store/local';
 
 function frameTag(): string {
   try {
@@ -172,17 +173,16 @@ function setupVideoObserver() {
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
       // 初期キャリブレーションはデフォルト無効
-      // 計測が必要なときだけ localStorage のフラグで明示的に有効化
-      // 例: localStorage.setItem('cfg:cal:auto','1') または debug:cal=1
+      // 計測が必要なときだけフラグで明示的に有効化（store/local 経由）
+      // 例: setBool(Keys.CalAuto, true) / setBool(Keys.DebugCal, true)
+      //    （開発中に手早く試すなら DevTools から）
+      //      localStorage.setItem('cfg:cal:auto','1');
+      //      localStorage.setItem('debug:cal','1');
       try {
-        const auto = localStorage.getItem('cfg:cal:auto') === '1';
-        const debug = localStorage.getItem('debug:cal') === '1';
-        if (auto || debug) {
-          startCalibration(video);
-        }
-      } catch {
-        /* no-op */
-      }
+        const auto = getBool(Keys.CalAuto);
+        const debug = getBool(Keys.DebugCal);
+        if (auto || debug) startCalibration(video);
+      } catch { /* no-op */ }
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
@@ -273,7 +273,7 @@ function ensureShortcutHelp() {
   const host = document.getElementById('yt-longseek-tsjump-root');
   const sr = host?.shadowRoot;
   if (!sr) return;
-  const dismissed = localStorage.getItem('shortcutsHelpDismissed') === '1';
+  const dismissed = getBool(Keys.ShortcutsHelpDismissed);
   const box = sr.getElementById('shortcut-help') as HTMLDivElement | null;
   if (!box) return;
   if (dismissed) {
@@ -309,7 +309,7 @@ function ensureShortcutHelp() {
   }
   if (closeBtn && !closeBtn.onclick) {
     closeBtn.onclick = () => {
-      localStorage.setItem('shortcutsHelpDismissed', '1');
+      setBool(Keys.ShortcutsHelpDismissed, true);
       box.style.display = 'none';
     };
   }

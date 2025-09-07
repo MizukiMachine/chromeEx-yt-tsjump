@@ -4,6 +4,7 @@
  */
 
 import { getSeekableEnd } from './seek';
+import { getBool, Keys } from '../store/local';
 
 // 設定値
 const MAX_SAMPLES = 6;               // 最大サンプル数（初回）
@@ -297,19 +298,11 @@ function debugCal(event: string, payload?: Record<string, unknown>) {
 }
 
 function isDebugCal(): boolean {
-  try {
-    return localStorage.getItem('debug:cal') === '1';
-  } catch {
-    return false;
-  }
+  return getBool(Keys.DebugCal);
 }
 
 function isCfgOn(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === '1';
-  } catch {
-    return false;
-  }
+  return getBool(key);
 }
 
 function snapshotVideoInfo(v: HTMLVideoElement): Record<string, unknown> {

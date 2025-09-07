@@ -1,4 +1,5 @@
 type Lang = 'en' | 'ja'
+import { getString, Keys } from './store/local'
 
 const dict: Record<Lang, Record<string, string>> = {
   en: {
@@ -19,7 +20,7 @@ const dict: Record<Lang, Record<string, string>> = {
 
 export function getLang(): Lang {
   try {
-    const v = (localStorage.getItem('lang') || 'en') as Lang
+    const v = (getString(Keys.Lang) || 'en') as Lang
     return v === 'ja' ? 'ja' : 'en'
   } catch { return 'en' }
 }

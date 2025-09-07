@@ -8,6 +8,7 @@ import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
 import * as calibration from './calibration';
 import { isAdActive } from './adsense';
 import { showToast } from '../ui/toast';
+import { getString } from '../store/local';
 // startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 
@@ -193,9 +194,7 @@ export function jumpToLocalTime(
   }
 }
 
-function safeGetLocal(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
-}
+function safeGetLocal(key: string): string | null { return getString(key); }
 
 function shiftYMD(d: YMD, deltaDays: number): YMD {
   try {

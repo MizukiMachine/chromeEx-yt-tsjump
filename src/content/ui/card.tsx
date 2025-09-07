@@ -3,12 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
 import { t, getLang } from '../i18n'
 import { jumpToLocalTime } from '../core/jump'
+import { getString, setString, getJSON, setJSON, addTZMru, Keys } from '../store/local'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
-const KEY_OPEN = 'card:open'
-const KEY_TZ = 'tz:current'
-const KEY_MRU = 'tz:mru'
+const KEY_OPEN = Keys.CardOpen
 
 type GetVideo = () => HTMLVideoElement | null
 
@@ -31,15 +30,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     // 既定は閉じた状態から開始（過去の保存は無視）
     const [open, setOpen] = useState(false)
     const [input, setInput] = useState('')
-    const [zone, setZone] = useState(localStorage.getItem(KEY_TZ) || DEFAULT_ZONE)
+    const [zone, setZone] = useState(getString(Keys.TzCurrent) || DEFAULT_ZONE)
     // ステータス表示は廃止（カード内メッセージを出さない）
     const inputRef = useRef<HTMLInputElement>(null)
     const [typing, setTyping] = useState(false)
     // ピン留め機能は一旦廃止（オン/オフのみ）
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(() => {
-      try { const raw = localStorage.getItem('card:pos'); if (raw) return JSON.parse(raw) } catch {}
-      return null
-    })
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(() => getJSON(Keys.CardPos))
     const posRef = useRef<{ x:number; y:number } | null>(pos)
     useEffect(() => { posRef.current = pos }, [pos])
     const [showHelp, setShowHelp] = useState(false)
@@ -51,12 +47,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
     // MRUゾーンの一覧を用意
     const { mru, others } = useMemo(() => {
-      let mru: string[] = []
-      try {
-        const raw = localStorage.getItem(KEY_MRU)
-        if (raw) mru = JSON.parse(raw)
-      } catch {}
-      const uniq = Array.from(new Set([zone, ...mru]))
+      const rawMru = getJSON<string[]>(Keys.TzMru) ?? []
+      const uniq = Array.from(new Set([zone, ...rawMru]))
       const mru5 = uniq.filter(Boolean).slice(0, 5)
       const others = PRESET_ZONES.filter((z) => !mru5.includes(z))
       return { mru: mru5, others }
@@ -66,12 +58,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     useEffect(() => {
       api.open = () => {
         setOpen(true)
-        localStorage.setItem(KEY_OPEN, '1')
+        setString(KEY_OPEN, '1')
         setTimeout(() => inputRef.current?.focus(), 0)
       }
       api.close = () => {
         setOpen(false)
-        localStorage.setItem(KEY_OPEN, '0')
+        setString(KEY_OPEN, '0')
       }
       api.toggle = () => (open ? api.close() : api.open())
       api.isTyping = () => typing
@@ -128,9 +120,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       setPos({ x, y }); savePos({ x, y })
     }, [])
 
-    function savePos(p: { x:number; y:number }) {
-      try { localStorage.setItem('card:pos', JSON.stringify(p)) } catch {}
-    }
+    function savePos(p: { x:number; y:number }) { setJSON(Keys.CardPos, p) }
 
     // ドラッグ（カード上のどこでも。入力やボタンなどのインタラクティブ要素は除外）
     useEffect(() => {
@@ -179,11 +169,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       }
       // MRU更新
       try {
-        const raw = localStorage.getItem(KEY_MRU)
-        const arr: string[] = raw ? JSON.parse(raw) : []
-        const next = [zone, ...arr.filter((z) => z !== zone)]
-        localStorage.setItem(KEY_MRU, JSON.stringify(next.slice(0, 5)))
-        localStorage.setItem(KEY_TZ, zone)
+        addTZMru(zone)
+        setString(Keys.TzCurrent, zone)
       } catch {}
     }
 
@@ -211,7 +198,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
           <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
             <button onClick={() => setShowHelp((v) => !v)} title="Help" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
-            <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { localStorage.setItem('lang', next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
+            <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { setString(Keys.Lang, next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
             <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
