@@ -336,11 +336,14 @@ function ensureCard() {
   // Alt+Shift+J で開閉
   const onKey = (e: KeyboardEvent) => {
     if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.toUpperCase() === 'J') {
-      // 入力中は無視
-      const active = document.activeElement as HTMLElement | null;
-      const tag = active?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea') return;
-      cardApi?.toggle();
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const isOpen = cardApi && typeof (cardApi as any).isOpen === 'function' && (cardApi as any).isOpen();
+        if (isOpen) cardApi?.close?.();
+        else if (cardApi && typeof (cardApi as any).openSmart === 'function') (cardApi as any).openSmart();
+        else cardApi?.toggle();
+      } catch {}
     }
   };
   window.addEventListener('keydown', onKey);
@@ -415,7 +418,14 @@ function mountJumpButton(): void {
   btn.title = 'Jump';
   btn.setAttribute('aria-label', 'Jump');
   btn.innerHTML = '<span class="ytp-jump__inner"><span class="ytp-jump__label">Jump</span></span>';
-  btn.addEventListener('click', () => { try { cardApi?.toggle(); } catch {} });
+  btn.addEventListener('click', () => {
+    try {
+      const isOpen = cardApi && typeof (cardApi as any).isOpen === 'function' && (cardApi as any).isOpen();
+      if (isOpen) cardApi?.close?.();
+      else if (cardApi && typeof (cardApi as any).openSmart === 'function') (cardApi as any).openSmart();
+      else cardApi?.toggle();
+    } catch {}
+  });
 
   const afterNode = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
   const beforeNode = controls.querySelector('.ytp-settings-button') as HTMLElement | null;

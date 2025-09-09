@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
 import { t, getLang } from '../i18n'
 import { jumpToLocalTime } from '../core/jump'
-import { getString, setString, getJSON, setJSON, addTZMru, Keys } from '../store/local'
-import { clampToViewport } from './layout'
+import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
+import { clampRectToViewport, clampRectToBounds } from './layout'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -12,7 +12,15 @@ const KEY_OPEN = Keys.CardOpen
 
 type GetVideo = () => HTMLVideoElement | null
 
-export type CardAPI = { open: () => void; close: () => void; toggle: () => void; isTyping: () => boolean; isOpen: () => boolean }
+export type CardAPI = {
+  open: () => void
+  openAt: (x: number, y: number) => void
+  openSmart: () => void  // posが無ければボタン近く、あれば最後の位置
+  close: () => void
+  toggle: () => void
+  isTyping: () => boolean
+  isOpen: () => boolean
+}
 
 // ルートの設置とレンダリング
 export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
@@ -24,7 +32,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     sr.appendChild(host)
   }
 
-  let api: CardAPI = { open: () => {}, close: () => {}, toggle: () => {}, isTyping: () => false, isOpen: () => false }
+  let api: CardAPI = { open: () => {}, openAt: () => {}, openSmart: () => {}, close: () => {}, toggle: () => {}, isTyping: () => false, isOpen: () => false }
 
   function App() {
     // 状態
@@ -36,7 +44,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const inputRef = useRef<HTMLInputElement>(null)
     const [typing, setTyping] = useState(false)
     // ピン留め機能は一旦廃止（オン/オフのみ）
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(() => getJSON(Keys.CardPos))
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
     const posRef = useRef<{ x:number; y:number } | null>(pos)
     useEffect(() => { posRef.current = pos }, [pos])
     const [showHelp, setShowHelp] = useState(false)
@@ -63,11 +71,59 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setString(KEY_OPEN, '1')
         setTimeout(() => inputRef.current?.focus(), 0)
       }
+      api.openSmart = () => {
+        // posが未設定ならボタン右端基準で少し内側＆上へ配置（動画領域内にクランプ）
+        const hasPos = !!posRef.current
+        if (hasPos) { api.open(); return }
+        try {
+          const btn = document.querySelector('#ytp-jump') as HTMLElement | null
+          const r = btn?.getBoundingClientRect()
+          const v = getVideo()
+          const videoRect = (v?.getBoundingClientRect?.() as DOMRect | undefined)
+            ?? (document.querySelector('.html5-video-player') as HTMLElement | null)?.getBoundingClientRect()
+          if (r) {
+            const CARD_W = 300, CARD_H = 160
+            const SHIFT_INNER = 24 // 右端から内側へ
+            let x = r.right - SHIFT_INNER - CARD_W
+            let y = r.top - CARD_H - 12
+            if (videoRect) {
+              const p = clampRectToBounds({ x, y }, CARD_W, CARD_H, videoRect)
+              x = p.x; y = p.y
+            } else {
+              const p = clampRectToViewport({ x, y }, CARD_W, CARD_H, window.innerWidth, window.innerHeight)
+              x = p.x; y = p.y
+            }
+            setPos({ x, y })
+          }
+        } catch {}
+        setOpen(true)
+        setString(KEY_OPEN, '1')
+        setTimeout(() => inputRef.current?.focus(), 0)
+      }
+      api.openAt = (x: number, y: number) => {
+        const vw = window.innerWidth, vh = window.innerHeight
+        const rect = cardRef.current?.getBoundingClientRect()
+        const CARD_W = rect?.width ?? 300
+        const CARD_H = rect?.height ?? 160
+        const OFFSET_Y = 140
+        const px = x - (CARD_W / 2)
+        const py = y - OFFSET_Y
+        const v = getVideo()
+        const videoRect = (v?.getBoundingClientRect?.() as DOMRect | undefined)
+          ?? (document.querySelector('.html5-video-player') as HTMLElement | null)?.getBoundingClientRect()
+        const clamped = videoRect
+          ? clampRectToBounds({ x: px, y: py }, CARD_W, CARD_H, videoRect)
+          : clampRectToViewport({ x: px, y: py }, CARD_W, CARD_H, vw, vh)
+        setPos(clamped); savePos(clamped)
+        setOpen(true)
+        setString(KEY_OPEN, '1')
+        setTimeout(() => inputRef.current?.focus(), 0)
+      }
       api.close = () => {
         setOpen(false)
         setString(KEY_OPEN, '0')
       }
-      api.toggle = () => (open ? api.close() : api.open())
+      api.toggle = () => (open ? api.close() : api.openSmart())
       api.isTyping = () => typing
       api.isOpen = () => open
     }, [open, typing])
@@ -78,36 +134,50 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       if (!el) return
       const onFocus = () => setTyping(true)
       const onBlur = () => setTyping(false)
-      // YouTube側への伝播を止める 数字入力でのデフォルトシークを抑止
-      const stop = (e: any) => e.stopPropagation()
+      // YouTube側への伝播を原則止めるが、Alt+Shift+J はパネルのトグル用に通す
+      const stop = (e: KeyboardEvent) => {
+        const isToggle = e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key?.toUpperCase?.() === 'J')
+        if (!isToggle) e.stopPropagation()
+      }
       el.addEventListener('focus', onFocus)
       el.addEventListener('blur', onBlur)
-      el.addEventListener('keydown', stop, true)
-      el.addEventListener('keyup', stop, true)
-      el.addEventListener('keypress', stop, true)
+      el.addEventListener('keydown', stop as any, true)
+      el.addEventListener('keyup', stop as any, true)
+      el.addEventListener('keypress', stop as any, true)
       return () => {
         el.removeEventListener('focus', onFocus)
         el.removeEventListener('blur', onBlur)
-        el.removeEventListener('keydown', stop, true)
-        el.removeEventListener('keyup', stop, true)
-        el.removeEventListener('keypress', stop, true)
+        el.removeEventListener('keydown', stop as any, true)
+        el.removeEventListener('keyup', stop as any, true)
+        el.removeEventListener('keypress', stop as any, true)
       }
     }, [])
 
     // 無操作フェードは廃止（シンプル運用）
 
-    // 画面リサイズで位置をクランプ
+    // 画面リサイズ/全画面切替/向き変更で位置をクランプ（動画領域優先）
     useEffect(() => {
       const onResize = () => {
         setPos((p) => {
           if (!p) return p
-          const clamped = clampToViewport(p, window.innerWidth, window.innerHeight)
+          const rect = cardRef.current?.getBoundingClientRect()
+          const w = rect?.width ?? 300
+          const h = rect?.height ?? 160
+          const v = getVideo()
+          const videoRect = (v?.getBoundingClientRect?.() as DOMRect | undefined)
+            ?? (document.querySelector('.html5-video-container') as HTMLElement | null)?.getBoundingClientRect()
+            ?? (document.querySelector('.html5-video-player') as HTMLElement | null)?.getBoundingClientRect()
+          const clamped = videoRect
+            ? clampRectToBounds(p, w, h, videoRect)
+            : clampRectToViewport(p, w, h, window.innerWidth, window.innerHeight)
           if (clamped.x !== p.x || clamped.y !== p.y) { savePos(clamped) }
           return clamped
         })
       }
       window.addEventListener('resize', onResize)
-      return () => window.removeEventListener('resize', onResize)
+      document.addEventListener('fullscreenchange', onResize)
+      window.addEventListener('orientationchange', onResize)
+      return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); window.removeEventListener('orientationchange', onResize) }
     }, [])
 
     // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
@@ -140,18 +210,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       return () => root.removeEventListener('mousedown', onDown as any, true)
     }, [open])
 
-    // 初回位置（Jumpボタン上・右寄り or 右下）。字幕帯90pxを避ける
-    useEffect(() => {
-      if (pos) return
-      const btn = document.querySelector('.ytp-right-controls .yt-longseek-jump') as HTMLElement | null
-      const r = btn?.getBoundingClientRect()
-      const vw = window.innerWidth, vh = window.innerHeight
-      let x = vw - 320, y = Math.max(0, vh - 200 - 90) // 右下寄り、字幕帯回避
-      if (r) { x = Math.min(vw - 300, Math.max(0, r.right - 260)); y = Math.max(0, r.top - 140) }
-      setPos({ x, y }); savePos({ x, y })
-    }, [])
+    // 旧初期位置ロジックは撤去（openSmartが一元的に決定）
 
-    function savePos(p: { x:number; y:number }) { setJSON(Keys.CardPos, p) }
+    function savePos(_p: { x:number; y:number }) { /* session-only: do not persist across reload */ }
 
     // ドラッグ（カード上のどこでも。入力やボタンなどのインタラクティブ要素は除外）
     useEffect(() => {
@@ -209,7 +270,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const display = open ? '' : 'none'
     const stylePos: any = pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' } : { right: '24px', bottom: '100px' }
     return (
-      <div id="yt-card" ref={cardRef} onKeyDownCapture={(e: any) => e.stopPropagation()} onKeyUpCapture={(e: any) => e.stopPropagation()} style={{
+      <div id="yt-card" ref={cardRef} style={{
         position: 'fixed', zIndex: '2147483647',
         background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
         boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '300px', pointerEvents: 'auto', display,
@@ -224,6 +285,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           #yt-card:active { transform: translateY(0); }
           #yt-card input, #yt-card textarea, #yt-card select { cursor: text; }
           #yt-card button, #yt-card a, #yt-card .yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
+          #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); }
+          #yt-card.flip-y::after{ top:auto; bottom:-6px; transform: translateX(-50%) rotate(225deg); }
         `}</style>
         {/* tools row (no title) */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
@@ -325,6 +388,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
   return api
 }
+
+// ---- helpers ----
 
 function labelTZ(z: string): string {
   try {
