@@ -285,7 +285,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           #yt-card:active { transform: translateY(0); }
           #yt-card input, #yt-card textarea, #yt-card select { cursor: text; }
           #yt-card button, #yt-card a, #yt-card .yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
-          #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); }
+          #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); opacity: 0; }
           #yt-card.flip-y::after{ top:auto; bottom:-6px; transform: translateX(-50%) rotate(225deg); }
         `}</style>
         {/* tools row (no title) */}
