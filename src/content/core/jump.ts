@@ -9,6 +9,7 @@ import * as calibration from './calibration';
 import { isAdActive } from './adsense';
 import { showToast } from '../ui/toast';
 import { getString } from '../store/local';
+import { t } from '../utils/i18n';
 // startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
 import { logJump } from '../events/emit';
@@ -45,7 +46,7 @@ export function jumpToLocalTime(
   opts: JumpOptions = {}
 ): JumpResult {
   if (isAdActive()) {
-    showToast('An ad is playing, so seeking is paused.', 'warn');
+    showToast(t('toast_ad_paused'), 'warn');
     return { ok: false, decision: 'parse-error', reason: 'ad-active' };
   }
   const DEBUG = safeGetLocal('debug:jump') === '1';
@@ -165,6 +166,7 @@ export function jumpToLocalTime(
   const dEnd = Math.abs(E_target - E_end);
   if (dEnd <= dStart) {
     const r = seek(video, endGuard);
+    showToast(t('toast_moved_current'), 'info');
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-end', { dStart, dEnd, r });
@@ -181,6 +183,7 @@ export function jumpToLocalTime(
     };
   } else {
     const r = seek(video, start);
+    showToast(t('toast_moved_start'), 'info');
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-start', { dStart, dEnd, r });

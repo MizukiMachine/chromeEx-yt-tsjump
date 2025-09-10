@@ -11,6 +11,7 @@ import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
 import { getBool, setBool, setString, Keys } from './store/local';
+import { t } from './utils/i18n';
 import { mountDebug, type DebugAPI } from './ui/debug';
 import { logStatus, logAd } from './events/emit';
 
@@ -175,7 +176,7 @@ function setupVideoObserver() {
         const playerRoot = (video.closest('.html5-video-player') as HTMLElement | null) ?? document;
         startAdWatch(playerRoot, (active) => {
           if (active) {
-            showToast('An ad is playing, so seeking is paused.', 'warn');
+            showToast(t('toast_ad_paused'), 'warn');
           }
           try { logAd(active); } catch {}
         });

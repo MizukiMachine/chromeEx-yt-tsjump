@@ -104,7 +104,7 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
         const safeMax = bufEnd - EDGE_BACKOFF_SEC;
         const safe = Math.max(start, Math.min(cr.target, safeMax));
         if (safe < cr.target) {
-          cr = { ...cr, target: safe };
+          cr = { ...cr, target: safe, clamped: true };
         }
       }
     } catch {
