@@ -1,10 +1,10 @@
 import { render, h } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
-import { t, getLang } from '../i18n'
+import { t, getLang } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
-import { clampRectToViewport, clampRectToBounds } from './layout'
+import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー

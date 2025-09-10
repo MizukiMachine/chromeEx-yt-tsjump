@@ -1,5 +1,5 @@
 type Lang = 'en' | 'ja'
-import { getString, Keys } from './store/local'
+import { getString, Keys } from '../store/local'
 
 const dict: Record<Lang, Record<string, string>> = {
   en: {
