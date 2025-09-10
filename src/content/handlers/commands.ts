@@ -2,7 +2,7 @@
  * commandsハンドラ
  * ±10 ±60 を実装
  */
-import { seek } from '../core/seek';
+import { seekBySeconds } from '../core/seek';
 import { isAdActive } from '../core/adsense';
 import { showToast } from '../ui/toast';
 import { t } from '../utils/i18n';
@@ -27,8 +27,7 @@ export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand)
   };
 
   const delta = deltas[command];
-  const requested = video.currentTime + delta;
-  const result = seek(video, requested);
+  const result = seekBySeconds(video, delta);
 
   // クランプが発生した場合はトースト通知
   if (result.clamped) {

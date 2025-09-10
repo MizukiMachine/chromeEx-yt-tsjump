@@ -5,6 +5,8 @@ import { t, getLang } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
+import { loadCustomButtons, getEnabledButtons } from '../store/customButtons'
+import { seekBySeconds } from '../core/seek'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -53,6 +55,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const [presets, setPresets] = useState<string[]>(PRESET_ZONES)
     const zonesBtnRef = useRef<HTMLButtonElement>(null)
     const cardRef = useRef<HTMLDivElement>(null)
+    // カスタムボタン設定
+    const [customButtons, setCustomButtons] = useState(() => getEnabledButtons(loadCustomButtons()))
     // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
@@ -209,6 +213,24 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       } catch {}
     }, [])
 
+    // カスタムボタン設定の更新を監視
+    useEffect(() => {
+      const updateCustomButtons = () => {
+        setCustomButtons(getEnabledButtons(loadCustomButtons()))
+      }
+      
+      // localStorageの変更を監視
+      window.addEventListener('storage', updateCustomButtons)
+      
+      // 定期的な再読み込み（他のタブでの変更対応）
+      const interval = setInterval(updateCustomButtons, 2000)
+      
+      return () => {
+        window.removeEventListener('storage', updateCustomButtons)
+        clearInterval(interval)
+      }
+    }, [])
+
     // 外側クリックで閉じる
     useEffect(() => {
       const el = cardRef.current
@@ -295,6 +317,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       } catch {}
     }
 
+    // カスタムボタンクリックハンドラ
+    function handleCustomButtonClick(seconds: number) {
+      const v = getVideo()
+      if (!v) return
+      seekBySeconds(v, seconds)
+    }
+
     // 表示
     const display = open ? '' : 'none'
     const stylePos: any = pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' } : { right: '24px', bottom: '100px' }
@@ -316,6 +345,11 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           #yt-card button, #yt-card a, #yt-card .yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
           #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); opacity: 0; }
           #yt-card.flip-y::after{ top:auto; bottom:-6px; transform: translateX(-50%) rotate(225deg); }
+          .custom-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+          .custom-button { flex: 1 1 calc(16.67% - 4px); min-width: 40px; max-width: 60px; padding: 4px 2px; font-size: 11px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; cursor: pointer; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .custom-button:hover { background: #333; }
+          .custom-button:active { background: #444; }
+          @media (max-width: 360px) { .custom-button { flex: 1 1 calc(33.33% - 4px); } }
         `}</style>
         {/* tools row (no title) */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
@@ -325,6 +359,23 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
+        {/* カスタムシークボタン */}
+        {customButtons.length > 0 && (
+          <div class="custom-buttons">
+            {customButtons.map((button, index) => (
+              <button
+                key={index}
+                class="custom-button"
+                type="button"
+                title={`${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                onClick={() => handleCustomButtonClick(button.seconds)}
+                onMouseDown={(e: any) => e.stopPropagation()}
+              >
+                {button.label}
+              </button>
+            ))}
+          </div>
+        )}
         {showHelp && (
           <div style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5 }}>
             {t('help_text').split('\n').map((line) => (<>

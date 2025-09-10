@@ -143,3 +143,13 @@ export function isNearLiveEdge(video: HTMLVideoElement, thresholdSec = 5): boole
   const end = getSeekableEnd(video);
   return end > 0 && end - video.currentTime <= thresholdSec;
 }
+
+/**
+ * 指定秒数分のシーク（カスタムボタン/ショートカット共通）
+ * 正の値=早送り、負の値=巻き戻し
+ */
+export function seekBySeconds(video: HTMLVideoElement, seconds: number): SeekResult {
+  const currentTime = video.currentTime;
+  const targetTime = currentTime + seconds;
+  return seek(video, targetTime);
+}
