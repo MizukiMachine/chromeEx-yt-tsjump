@@ -166,6 +166,87 @@ E2E（Playwright）
 - 外部通信なし、最小権限、CSP 準拠。外部 CDN を使用しない
 - 保存は UI 状態のみ（カード位置・ピン、TZ、MRU）。個人情報は扱わない
 
+## ■ 新機能設計（カスタムシークボタン）
+
+### カスタムボタン UI 拡張
+- **card.tsx の拡張**: 操作パネル最上段にカスタムボタン群を追加
+- **レスポンシブレイアウト**: CSS Flexbox で 6×1 → 3×2 の自動折り返し
+  ```css
+  .custom-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .custom-button {
+    flex: 1 1 calc(16.67% - 4px); /* 6 buttons per row */
+    min-width: 40px;
+    max-width: 60px;
+  }
+  @media (max-width: 360px) {
+    .custom-button {
+      flex: 1 1 calc(33.33% - 4px); /* 3 buttons per row */
+    }
+  }
+  ```
+
+### データ構造とストレージ
+- **型定義**: `CustomButton { label: string, seconds: number, enabled: boolean }`
+- **保存先**: `localStorage['custom-buttons']` に配列形式
+- **デフォルト値**: 6 ボタン設定を初期化時にロード
+- **バリデーション**: `^[A-Za-z0-9+\-]{1,4}$` パターンマッチング
+
+### シーク処理の共通化
+- **core/seek.ts 拡張**:
+  ```typescript
+  export function seekBySeconds(video: HTMLVideoElement, seconds: number): void {
+    const currentTime = video.currentTime;
+    const targetTime = currentTime + seconds;
+    const clampedTime = clampToPlayable(targetTime, getSeekableStart(video), getSeekableEnd(video));
+    seek(video, clampedTime);
+  }
+  ```
+- **既存ショートカット**: `seekBySeconds()` を呼び出すようリファクタリング
+- **カスタムボタン**: 同じ `seekBySeconds()` を使用
+
+### オプションページ拡張
+- **options.tsx 拡張**: カスタムボタン設定セクションを追加
+- **UI コンポーネント**: 
+  - ボタン 1-6 の設定フォーム（ラベル + 秒数入力）
+  - リアルタイムプレビュー表示
+  - リセット/デフォルト復元ボタン
+- **エラーハンドリング**: バリデーション失敗時の多言語エラー表示
+
+### モジュール構成の追加
+```
+src/content/
+  ui/
+    card.tsx                    # カスタムボタン群を統合
+    components/
+      CustomButtons.tsx         # カスタムボタンコンポーネント
+  core/
+    seek.ts                     # seekBySeconds() 追加
+  store/
+    customButtons.ts            # カスタムボタン設定管理
+    schema.ts                   # 設定スキーマ定義
+  utils/
+    validation.ts               # ラベルバリデーション
+
+src/options/
+  components/
+    CustomButtonsSettings.tsx   # 設定UI
+```
+
+### 状態管理フロー
+1. **初期化**: `localStorage` からカスタムボタン設定をロード
+2. **UI 描画**: 有効なボタンのみ表示、レスポンシブレイアウト適用
+3. **ボタンクリック**: `seekBySeconds(video, button.seconds)` を実行
+4. **設定変更**: オプションページで設定更新 → `localStorage` 保存 → UI 再描画
+
+### パフォーマンス考慮
+- **ボタン描画**: `useMemo()` でボタン配列をメモ化
+- **レイアウト計算**: `ResizeObserver` で画面幅変化を監視
+- **設定保存**: デバウンス処理で連続入力時の保存負荷軽減
+
 ## ■ 将来拡張フック
 
 - 国際化（i18n）プレースホルダ
