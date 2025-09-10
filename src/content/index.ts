@@ -37,6 +37,8 @@ let debugApi: DebugAPI | null = null;
 // let jumpBtnInserted = false;
 // let controlsObserver: MutationObserver | null = null;
 let controlsMO: MutationObserver | null = null;
+// URL変更監視用
+let currentURL = location.href;
 // Jumpボタンの整列は最小限のスタイルのみ（実測アラインは行わない）
 
 /**
@@ -55,6 +57,9 @@ function initialize() {
   
   // バックグラウンドからのメッセージを受信
   setupMessageListener();
+
+  // URL変更監視を開始
+  setupURLObserver();
 
   // ステータス送信
   sendStatusToBackground('ready').catch(() => {});
@@ -266,6 +271,51 @@ if (process.env.NODE_ENV === 'development') {
       }
     }
   });
+}
+
+/**
+ * URL変更を監視してカードを閉じる
+ * YouTubeのSPAナビゲーションでは unload が発生しないため
+ */
+function setupURLObserver() {
+  // pushState/replaceState をフック
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+  
+  history.pushState = function(...args) {
+    const result = originalPushState.apply(this, args);
+    checkURLChange();
+    return result;
+  };
+  
+  history.replaceState = function(...args) {
+    const result = originalReplaceState.apply(this, args);
+    checkURLChange();
+    return result;
+  };
+  
+  // popstateイベント（戻る/進むボタン）
+  window.addEventListener('popstate', checkURLChange);
+  
+  // 定期チェックも追加（フォールバック）
+  setInterval(checkURLChange, 1000);
+}
+
+/**
+ * URL変更をチェックしてカードを閉じる
+ */
+function checkURLChange() {
+  const newURL = location.href;
+  if (newURL !== currentURL) {
+    console.log(`[Content:${frameTag()}] URL changed: ${currentURL} -> ${newURL}`);
+    currentURL = newURL;
+    
+    // カードが開いていれば閉じる
+    if (cardApi?.isOpen && cardApi.isOpen()) {
+      console.log(`[Content:${frameTag()}] Closing card due to URL change`);
+      cardApi.close();
+    }
+  }
 }
 
 // ページアンロード時の後片付け
