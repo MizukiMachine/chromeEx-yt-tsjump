@@ -72,9 +72,28 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setTimeout(() => inputRef.current?.focus(), 0)
       }
       api.openSmart = () => {
-        // posが未設定ならボタン右端基準で少し内側＆上へ配置（動画領域内にクランプ）
-        const hasPos = !!posRef.current
-        if (hasPos) { api.open(); return }
+        // 保存位置があるかチェック
+        const savedPos = posRef.current
+        
+        // 保存位置が画面外かチェック
+        let needRecalculate = !savedPos
+        if (savedPos) {
+          const vw = window.innerWidth
+          const vh = window.innerHeight
+          const CARD_W = 300, CARD_H = 160
+          const outOfBounds = (
+            savedPos.x < 0 || 
+            savedPos.y < 0 || 
+            savedPos.x + CARD_W > vw || 
+            savedPos.y + CARD_H > vh
+          )
+          needRecalculate = outOfBounds
+        }
+        
+        if (!needRecalculate) { 
+          api.open(); 
+          return 
+        }
         try {
           const btn = document.querySelector('#ytp-jump') as HTMLElement | null
           const r = btn?.getBoundingClientRect()
@@ -163,13 +182,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           const rect = cardRef.current?.getBoundingClientRect()
           const w = rect?.width ?? 300
           const h = rect?.height ?? 160
-          const v = getVideo()
-          const videoRect = (v?.getBoundingClientRect?.() as DOMRect | undefined)
-            ?? (document.querySelector('.html5-video-container') as HTMLElement | null)?.getBoundingClientRect()
-            ?? (document.querySelector('.html5-video-player') as HTMLElement | null)?.getBoundingClientRect()
-          const clamped = videoRect
-            ? clampRectToBounds(p, w, h, videoRect)
-            : clampRectToViewport(p, w, h, window.innerWidth, window.innerHeight)
+          // 常にビューポート内にクランプ（ブラウザリサイズでアクセス不可を防ぐ）
+          const clamped = clampRectToViewport(p, w, h, window.innerWidth, window.innerHeight)
           if (clamped.x !== p.x || clamped.y !== p.y) { savePos(clamped) }
           return clamped
         })
@@ -230,6 +244,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         sx = e.clientX; sy = e.clientY
         const p = posRef.current
         startX = p?.x ?? 0; startY = p?.y ?? 0
+        
+        // チャット欄の干渉を防ぐため、ドラッグ中はチャット要素のポインターイベントを無効化
+        const chatContainer = document.querySelector('#chat-container, #chatframe')
+        if (chatContainer) {
+          (chatContainer as HTMLElement).style.pointerEvents = 'none'
+        }
+        
         e.preventDefault()
       }
       const onMove = (e: MouseEvent) => {
@@ -240,7 +261,15 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         const clamped = { x: Math.min(vw - 40, Math.max(0, nx)), y: Math.min(vh - 40, Math.max(0, ny)) }
         setPos(clamped); savePos(clamped)
       }
-      const onUp = () => { draggingRef.current = false }
+      const onUp = () => { 
+        draggingRef.current = false 
+        
+        // チャット要素のポインターイベントを復元
+        const chatContainer = document.querySelector('#chat-container, #chatframe')
+        if (chatContainer) {
+          (chatContainer as HTMLElement).style.pointerEvents = ''
+        }
+      }
       el.addEventListener('mousedown', onDown)
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
