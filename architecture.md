@@ -35,6 +35,7 @@
 src/
   background/
     index.ts                  # commands → content へ転送
+    route.ts                  # メッセージルーティング
   content/
     index.ts                  # 起点（UI ルート、video 検出、初回校正）
     bridge/runtime.ts         # postMessage/受信、型安全なチャネル
@@ -49,12 +50,21 @@ src/
       card.tsx                # 入力カード（TZ ドロップダウン MRU）
       toast.tsx               # フレンドリートースト
       debug.tsx               # デバッグパネル（Alt+Shift+D）
+      hooks/                  # UI関連カスタムフック
+        useCardPosition.ts    # カード位置管理
+        useDragHandling.ts    # ドラッグ処理
+        useTimezoneData.ts    # TZ・MRU管理
+    utils/                    # ユーティリティ
+      i18n.ts                 # 国際化
+      layout.ts               # レイアウト・位置計算
     log/
       buffer.ts               # 固定長リング（N=200）
       emit.ts                 # イベント集約
     store/
       local.ts                # localStorage（位置、ピン、TZ、MRU）
     dom/video.ts              # `<video>` 検出ユーティリティ
+    handlers/
+      commands.ts             # コマンドハンドラ
   options/
     index.tsx                 # 任意のオプションページ
   types/
@@ -62,6 +72,14 @@ src/
   styles/
     index.css                 # z-index, shadow host の見た目
 ```
+
+### ディレクトリ構造の意図
+
+- `content/ui/hooks/`: Preactカスタムフック（位置管理、ドラッグ、TZ管理）
+- `content/utils/`: 汎用ユーティリティ（国際化、レイアウト計算）
+- `content/core/`: ビジネスロジック（時刻変換、シーク、ジャンプ）
+- `content/handlers/`: イベント処理
+- モジュール間の依存関係を明確化し、循環依存を回避
 
 ## ■ 型と状態
 
