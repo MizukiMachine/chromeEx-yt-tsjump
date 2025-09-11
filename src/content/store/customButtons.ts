@@ -25,7 +25,37 @@ const DEFAULT_BUTTONS: CustomButton[] = [
 ];
 
 /**
- * カスタムボタン設定をローカルストレージから読み込み
+ * ボタン設定のパースとバリデーション
+ */
+function parseButtonsConfig(parsed: any): CustomButtonsConfig {
+  if (!parsed || !Array.isArray(parsed.buttons)) {
+    return { buttons: [...DEFAULT_BUTTONS] };
+  }
+  
+  // バリデーションとマイグレーション
+  const buttons = parsed.buttons.map((btn: any, index: number) => {
+    if (typeof btn !== 'object' || btn === null) {
+      return DEFAULT_BUTTONS[index] || DEFAULT_BUTTONS[0];
+    }
+    
+    return {
+      label: typeof btn.label === 'string' ? btn.label : DEFAULT_BUTTONS[index]?.label || '',
+      seconds: typeof btn.seconds === 'number' ? btn.seconds : DEFAULT_BUTTONS[index]?.seconds || 0,
+      enabled: typeof btn.enabled === 'boolean' ? btn.enabled : true,
+    };
+  });
+  
+  // 常に6個のボタンを保証
+  while (buttons.length < 6) {
+    const defaultIndex = buttons.length;
+    buttons.push(DEFAULT_BUTTONS[defaultIndex] || { label: '', seconds: 0, enabled: false });
+  }
+  
+  return { buttons: buttons.slice(0, 6) };
+}
+
+/**
+ * カスタムボタン設定をストレージから読み込み（同期版）
  */
 export function loadCustomButtons(): CustomButtonsConfig {
   try {
@@ -35,30 +65,7 @@ export function loadCustomButtons(): CustomButtonsConfig {
     }
     
     const parsed = JSON.parse(stored);
-    if (!parsed || !Array.isArray(parsed.buttons)) {
-      return { buttons: [...DEFAULT_BUTTONS] };
-    }
-    
-    // バリデーションとマイグレーション
-    const buttons = parsed.buttons.map((btn: any, index: number) => {
-      if (typeof btn !== 'object' || btn === null) {
-        return DEFAULT_BUTTONS[index] || DEFAULT_BUTTONS[0];
-      }
-      
-      return {
-        label: typeof btn.label === 'string' ? btn.label : DEFAULT_BUTTONS[index]?.label || '',
-        seconds: typeof btn.seconds === 'number' ? btn.seconds : DEFAULT_BUTTONS[index]?.seconds || 0,
-        enabled: typeof btn.enabled === 'boolean' ? btn.enabled : true,
-      };
-    });
-    
-    // 常に6個のボタンを保証
-    while (buttons.length < 6) {
-      const defaultIndex = buttons.length;
-      buttons.push(DEFAULT_BUTTONS[defaultIndex] || { label: '', seconds: 0, enabled: false });
-    }
-    
-    return { buttons: buttons.slice(0, 6) }; // 6個まで
+    return parseButtonsConfig(parsed);
   } catch (error) {
     console.warn('Failed to load custom buttons config:', error);
     return { buttons: [...DEFAULT_BUTTONS] };
@@ -66,11 +73,45 @@ export function loadCustomButtons(): CustomButtonsConfig {
 }
 
 /**
- * カスタムボタン設定をローカルストレージに保存
+ * カスタムボタン設定をchrome.storage.localから非同期で読み込み
+ */
+export async function loadCustomButtonsAsync(): Promise<CustomButtonsConfig> {
+  try {
+    const anyChrome = (globalThis as any).chrome;
+    if (anyChrome?.storage?.local) {
+      return new Promise((resolve) => {
+        anyChrome.storage.local.get([STORAGE_KEY], (result: any) => {
+          if (result && result[STORAGE_KEY]) {
+            resolve(parseButtonsConfig(result[STORAGE_KEY]));
+          } else {
+            resolve({ buttons: [...DEFAULT_BUTTONS] });
+          }
+        });
+      });
+    }
+  } catch {}
+  
+  // フォールバック
+  return loadCustomButtons();
+}
+
+/**
+ * カスタムボタン設定を保存（localStorage + chrome.storage.local）
  */
 export function saveCustomButtons(config: CustomButtonsConfig): void {
   try {
+    // localStorageに保存
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    
+    // chrome.storage.localにも保存
+    try {
+      const anyChrome = (globalThis as any).chrome;
+      if (anyChrome?.storage?.local) {
+        anyChrome.storage.local.set({ [STORAGE_KEY]: config });
+      }
+    } catch {
+      console.warn('Failed to save to chrome.storage.local, using localStorage only');
+    }
   } catch (error) {
     console.error('Failed to save custom buttons config:', error);
     throw new Error('設定の保存に失敗しました');

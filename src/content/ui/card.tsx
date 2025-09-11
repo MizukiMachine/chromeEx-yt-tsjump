@@ -5,8 +5,10 @@ import { t, getLang } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
-import { loadCustomButtons, getEnabledButtons } from '../store/customButtons'
+import { loadCustomButtons, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds } from '../store/customButtons'
 import { seekBySeconds } from '../core/seek'
+import { isAdActive } from '../core/adsense'
+import { showToast } from './toast'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -57,6 +59,11 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const cardRef = useRef<HTMLDivElement>(null)
     // カスタムボタン設定
     const [customButtons, setCustomButtons] = useState(() => getEnabledButtons(loadCustomButtons()))
+    const [isEditMode, setIsEditMode] = useState(false)
+    const [editingButton, setEditingButton] = useState<number | null>(null)
+    const [editingValues, setEditingValues] = useState<{ label: string; seconds: string }>({ label: '', seconds: '' })
+    const [isCompactLayout, setIsCompactLayout] = useState(false)
+    const [showCustomButtons, setShowCustomButtons] = useState(false)
     // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
@@ -191,12 +198,58 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           if (clamped.x !== p.x || clamped.y !== p.y) { savePos(clamped) }
           return clamped
         })
+        
+        // ボタンレイアウトのチェック
+        checkButtonLayout()
       }
       window.addEventListener('resize', onResize)
       document.addEventListener('fullscreenchange', onResize)
       window.addEventListener('orientationchange', onResize)
       return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); window.removeEventListener('orientationchange', onResize) }
     }, [])
+    
+    // ボタンレイアウトのチェック - 実際のDOM要素の幅を測定
+    const checkButtonLayout = () => {
+      const customButtonsContainer = cardRef.current?.querySelector('.custom-buttons')
+      if (!customButtonsContainer) {
+        setIsCompactLayout(false)
+        return
+      }
+      
+      // 一時的に1行レイアウトにして幅を測定
+      customButtonsContainer.classList.remove('compact')
+      const containerWidth = (customButtonsContainer as HTMLElement).offsetWidth
+      const buttons = customButtonsContainer.querySelectorAll('.custom-button')
+      
+      let totalButtonWidth = 0
+      buttons.forEach(button => {
+        totalButtonWidth += (button as HTMLElement).offsetWidth
+      })
+      
+      // ガップ分を追加 (4px * (buttons.length - 1))
+      const totalWidth = totalButtonWidth + (buttons.length > 0 ? (buttons.length - 1) * 4 : 0)
+      
+      // コンテナ幅を超える場合は2行レイアウト
+      setIsCompactLayout(totalWidth > containerWidth)
+    }
+    
+    // カスタムボタンの表示状態初期化
+    useEffect(() => {
+      // 表示状態をlocalStorageから復元
+      try {
+        const stored = getString('custom-buttons-visible')
+        setShowCustomButtons(stored === 'true')
+      } catch {
+        setShowCustomButtons(false) // デフォルトは非表示
+      }
+    }, [])
+
+    useEffect(() => {
+      // カスタムボタンが表示されている場合のみレイアウトチェック
+      if (showCustomButtons) {
+        setTimeout(checkButtonLayout, 0)
+      }
+    }, [customButtons, isEditMode, showCustomButtons])
 
     // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
     useEffect(() => {
@@ -213,23 +266,100 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       } catch {}
     }, [])
 
-    // カスタムボタン設定の更新を監視
-    useEffect(() => {
-      const updateCustomButtons = () => {
-        setCustomButtons(getEnabledButtons(loadCustomButtons()))
+    // カスタムボタンの編集処理
+    const startEditButton = (index: number) => {
+      if (!isEditMode) return // 編集モードでない場合は何もしない
+      
+      const config = loadCustomButtons()
+      const allButtons = config.buttons
+      const buttonToEdit = allButtons[index]
+      if (buttonToEdit) {
+        setEditingButton(index)
+        setEditingValues({
+          label: buttonToEdit.label,
+          seconds: buttonToEdit.seconds.toString()
+        })
+      }
+    }
+    
+    const toggleEditMode = () => {
+      setIsEditMode(!isEditMode)
+      if (isEditMode) {
+        // 編集モード終了時は編集中の状態をリセット
+        setEditingButton(null)
+        setEditingValues({ label: '', seconds: '' })
+      }
+    }
+    
+    const toggleCustomButtons = () => {
+      const newState = !showCustomButtons
+      setShowCustomButtons(newState)
+      
+      // 編集モードも一緒に閉じる
+      if (!newState && isEditMode) {
+        setIsEditMode(false)
+        setEditingButton(null)
+        setEditingValues({ label: '', seconds: '' })
       }
       
-      // localStorageの変更を監視
-      window.addEventListener('storage', updateCustomButtons)
+      // localStorageに保存
+      try {
+        setString('custom-buttons-visible', newState.toString())
+      } catch {}
+    }
+
+    const saveEditButton = () => {
+      if (editingButton === null) return
       
-      // 定期的な再読み込み（他のタブでの変更対応）
-      const interval = setInterval(updateCustomButtons, 2000)
+      const config = loadCustomButtons()
+      const newButtons = [...config.buttons]
       
-      return () => {
-        window.removeEventListener('storage', updateCustomButtons)
-        clearInterval(interval)
+      const labelValidation = validateLabel(editingValues.label)
+      const secondsValue = parseInt(editingValues.seconds) || 0
+      const secondsValidation = validateSeconds(secondsValue)
+      
+      if (!labelValidation.valid) {
+        showToast(labelValidation.error || 'Invalid label', 'warn')
+        return
       }
-    }, [])
+      
+      if (!secondsValidation.valid) {
+        showToast(secondsValidation.error || 'Invalid seconds', 'warn')
+        return
+      }
+      
+      newButtons[editingButton] = {
+        label: editingValues.label,
+        seconds: secondsValue,
+        enabled: editingValues.label.trim() !== ''
+      }
+      
+      saveCustomButtons({ buttons: newButtons })
+      setCustomButtons(getEnabledButtons({ buttons: newButtons }))
+      setEditingButton(null)
+      setEditingValues({ label: '', seconds: '' })
+      showToast('Button updated!', 'info')
+    }
+
+    const cancelEditButton = () => {
+      setEditingButton(null)
+      setEditingValues({ label: '', seconds: '' })
+    }
+
+    const addNewButton = () => {
+      if (!isEditMode) return // 編集モードでない場合は何もしない
+      
+      const config = loadCustomButtons()
+      const firstEmptyIndex = config.buttons.findIndex(btn => !btn.enabled || btn.label.trim() === '')
+      
+      if (firstEmptyIndex === -1) {
+        showToast('Maximum 6 buttons allowed', 'warn')
+        return
+      }
+      
+      setEditingButton(firstEmptyIndex)
+      setEditingValues({ label: '', seconds: '60' })
+    }
 
     // 外側クリックで閉じる
     useEffect(() => {
@@ -258,6 +388,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       let sx = 0, sy = 0
       let startX = 0, startY = 0
       const onDown = (e: MouseEvent) => {
+        // 編集モード中はドラッグを無効化
+        if (isEditMode) return
+        
         const target = e.target as HTMLElement
         // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
         const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
@@ -296,7 +429,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
       return () => { el.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    }, [])
+    }, [isEditMode])
 
     // 提交
     async function onSubmit(e?: Event) {
@@ -318,62 +451,207 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     }
 
     // カスタムボタンクリックハンドラ
-    function handleCustomButtonClick(seconds: number) {
-      const v = getVideo()
-      if (!v) return
-      seekBySeconds(v, seconds)
+    function handleCustomButtonClick(button: any, actualIndex: number) {
+      if (isEditMode) {
+        // 編集モードの場合は編集開始
+        startEditButton(actualIndex)
+      } else {
+        // 通常モードの場合はシーク実行
+        const v = getVideo()
+        if (!v) return
+        
+        // 広告中の場合は抑止
+        if (isAdActive()) {
+          showToast(t('toast_ad_paused'), 'warn')
+          return
+        }
+        
+        const result = seekBySeconds(v, button.seconds)
+        
+        // クランプが発生した場合はトースト通知
+        if (result.clamped) {
+          showToast(t('toast_clamped'), 'info')
+        }
+      }
     }
 
     // 表示
     const display = open ? '' : 'none'
     const stylePos: any = pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' } : { right: '24px', bottom: '100px' }
     return (
-      <div id="yt-card" ref={cardRef} style={{
+      <div id="yt-card" ref={cardRef} class={isEditMode ? 'edit-mode' : ''} style={{
         position: 'fixed', zIndex: '2147483647',
         background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
         boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '300px', pointerEvents: 'auto', display,
         opacity: .85,
-        cursor: 'move',
+        cursor: isEditMode ? 'default' : 'move',
         ...stylePos
       }}>
         {/* 視覚フィードバック＆カーソル制御（ホバー時にわずかに持ち上げる） */}
         <style>{`
-          #yt-card { transition: box-shadow .15s ease, transform .12s ease, background-color .15s ease; }
+          #yt-card { transition: box-shadow .15s ease, transform .12s ease, background-color .15s ease, border-color .15s ease; }
           #yt-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.55); background: rgba(22,22,22,.96) !important; }
           #yt-card:active { transform: translateY(0); }
+          #yt-card.edit-mode { background: rgba(17,17,17,.96); border: 1px solid rgba(255,255,255,0.1); }
           #yt-card input, #yt-card textarea, #yt-card select { cursor: text; }
-          #yt-card button, #yt-card a, #yt-card .yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
+          #yt-card button, #yt-card a, #yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
           #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); opacity: 0; }
           #yt-card.flip-y::after{ top:auto; bottom:-6px; transform: translateX(-50%) rotate(225deg); }
-          .custom-buttons { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-          .custom-button { flex: 1 1 calc(16.67% - 4px); min-width: 40px; max-width: 60px; padding: 4px 2px; font-size: 11px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; cursor: pointer; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .custom-buttons { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 4px; 
+            margin-bottom: 8px;
+            width: 100%;
+          }
+          .custom-button { 
+            position: relative; 
+            flex: 1 1 auto;
+            min-width: 35px;
+            max-width: 60px;
+            padding: 4px 6px; 
+            font-size: 11px; 
+            background: #222; 
+            color: #fff; 
+            border: 1px solid #444; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            text-align: center; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            transition: all 0.15s;
+            box-sizing: border-box;
+          }
+          /* コンパクトレイアウト - 3×2 */
+          .custom-buttons.compact .custom-button {
+            flex: 1 1 calc(33.33% - 3px);
+            max-width: calc(33.33% - 3px);
+          }
+          .edit-mode .custom-button { background: #2a2a2a; border: 1px dashed rgba(255,255,255,0.2); }
+          .edit-mode .custom-button:hover { background: #333; transform: scale(1.05); }
           .custom-button:hover { background: #333; }
           .custom-button:active { background: #444; }
-          @media (max-width: 360px) { .custom-button { flex: 1 1 calc(33.33% - 4px); } }
+          .custom-button-editor { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #333; border: 1px solid #666; border-radius: 4px; padding: 2px; display: flex; flex-direction: column; gap: 1px; z-index: 10; }
+          .custom-button-editor input { background: #444; border: 1px solid #666; color: #fff; font-size: 9px; padding: 1px 2px; border-radius: 2px; width: 100%; box-sizing: border-box; }
+          .custom-button-editor .editor-buttons { display: flex; gap: 1px; }
+          .custom-button-editor .editor-buttons button { flex: 1; font-size: 8px; padding: 1px; background: #555; border: 1px solid #777; color: #fff; cursor: pointer; border-radius: 2px; }
+          .custom-button-editor .editor-buttons button:hover { background: #666; }
+          .custom-button-editor .editor-buttons .save { background: #4a4; }
+          .custom-button-editor .editor-buttons .cancel { background: #a44; }
+          .edit-mode-btn { background: transparent; color: #bbb; border: 0; cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: all 0.15s; }
+          .edit-mode-btn.active { background: rgba(255,255,255,0.1); color: #fff; }
         `}</style>
         {/* tools row (no title) */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
           <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
+            {showCustomButtons && (
+              <button 
+                onClick={toggleEditMode} 
+                title="Edit custom buttons" 
+                class={`edit-mode-btn ${isEditMode ? 'active' : ''}`}
+              >
+                ✎
+              </button>
+            )}
+            <button 
+              onClick={toggleCustomButtons}
+              title={showCustomButtons ? 'Hide custom buttons' : 'Show custom buttons'}
+              class={`edit-mode-btn ${showCustomButtons ? 'active' : ''}`}
+            >
+              {showCustomButtons ? '▲' : '▼'}
+            </button>
             <button onClick={() => setShowHelp((v) => !v)} title="Help" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
             <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { setString(Keys.Lang, next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
             <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
         {/* カスタムシークボタン */}
-        {customButtons.length > 0 && (
-          <div class="custom-buttons">
-            {customButtons.map((button, index) => (
-              <button
-                key={index}
-                class="custom-button"
-                type="button"
-                title={`${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
-                onClick={() => handleCustomButtonClick(button.seconds)}
-                onMouseDown={(e: any) => e.stopPropagation()}
-              >
-                {button.label}
-              </button>
-            ))}
+        {showCustomButtons && (
+          <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`}>
+          {customButtons.map((button, displayIndex) => {
+            // 全ボタン配列での実際のインデックスを取得
+            const allButtons = loadCustomButtons().buttons
+            const actualIndex = allButtons.findIndex(btn => 
+              btn.label === button.label && 
+              btn.seconds === button.seconds && 
+              btn.enabled
+            )
+            
+            return (
+              <div key={displayIndex} class="custom-button">
+                {editingButton === actualIndex ? (
+                  // 編集モード
+                  <div class="custom-button-editor" onMouseDown={(e: any) => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      value={editingValues.label}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+                      placeholder="Label"
+                      maxLength={4}
+                    />
+                    <input
+                      type="number"
+                      value={editingValues.seconds}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
+                      placeholder="Seconds"
+                    />
+                    <div class="editor-buttons">
+                      <button class="save" onClick={saveEditButton}>✓</button>
+                      <button class="cancel" onClick={cancelEditButton}>✕</button>
+                    </div>
+                  </div>
+                ) : (
+                  // 通常モード
+                  <div
+                    onClick={() => handleCustomButtonClick(button, actualIndex)}
+                    onMouseDown={(e: any) => e.stopPropagation()}
+                    style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                  >
+                    {button.label}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {/* 新しいボタンを追加 - 編集モードのみ表示 */}
+          {isEditMode && customButtons.length < 6 && (
+            <div class="custom-button" style={{ opacity: 0.6, border: '1px dashed #666' }}>
+              {editingButton !== null && loadCustomButtons().buttons[editingButton] && !loadCustomButtons().buttons[editingButton].enabled ? (
+                // 新規追加の編集モード
+                <div class="custom-button-editor" onMouseDown={(e: any) => e.stopPropagation()}>
+                  <input
+                    type="text"
+                    value={editingValues.label}
+                    onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+                    placeholder="Label"
+                    maxLength={4}
+                  />
+                  <input
+                    type="number"
+                    value={editingValues.seconds}
+                    onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
+                    placeholder="Seconds"
+                  />
+                  <div class="editor-buttons">
+                    <button class="save" onClick={saveEditButton}>✓</button>
+                    <button class="cancel" onClick={cancelEditButton}>✕</button>
+                  </div>
+                </div>
+              ) : (
+                // 新規追加ボタン
+                <div
+                  onClick={addNewButton}
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  title="Add new button"
+                >
+                  +
+                </div>
+              )}
+            </div>
+          )}
           </div>
         )}
         {showHelp && (
