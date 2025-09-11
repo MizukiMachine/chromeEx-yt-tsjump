@@ -46,7 +46,7 @@ export function jumpToLocalTime(
   opts: JumpOptions = {}
 ): JumpResult {
   if (isAdActive()) {
-    showToast(t('toast_ad_paused'), 'warn');
+    showToast(t('toast.ad_paused'), 'warn');
     return { ok: false, decision: 'parse-error', reason: 'ad-active' };
   }
   const DEBUG = safeGetLocal('debug:jump') === '1';
@@ -166,7 +166,7 @@ export function jumpToLocalTime(
   const dEnd = Math.abs(E_target - E_end);
   if (dEnd <= dStart) {
     const r = seek(video, endGuard);
-    showToast(t('toast_moved_current'), 'info');
+    showToast(t('toast.moved_current'), 'info');
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-end', { dStart, dEnd, r });
@@ -183,7 +183,7 @@ export function jumpToLocalTime(
     };
   } else {
     const r = seek(video, start);
-    showToast(t('toast_moved_start'), 'info');
+    showToast(t('toast.moved_start'), 'info');
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.debug('[Jump] jump-start', { dStart, dEnd, r });

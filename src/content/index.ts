@@ -176,7 +176,7 @@ function setupVideoObserver() {
         const playerRoot = (video.closest('.html5-video-player') as HTMLElement | null) ?? document;
         startAdWatch(playerRoot, (active) => {
           if (active) {
-            showToast(t('toast_ad_paused'), 'warn');
+            showToast(t('toast.ad_paused'), 'warn');
           }
           try { logAd(active); } catch {}
         });

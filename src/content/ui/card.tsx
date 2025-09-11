@@ -2,7 +2,7 @@ import { render, h } from 'preact'
 import { createPortal } from 'preact/compat'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
-import { t, getLang } from '../utils/i18n'
+import { t, getLang, formatSeconds } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
@@ -706,7 +706,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         
         // 広告中の場合は抑止
         if (isAdActive()) {
-          showToast(t('toast_ad_paused'), 'warn')
+          showToast(t('toast.ad_paused'), 'warn')
           return
         }
         
@@ -714,7 +714,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         
         // クランプが発生した場合はトースト通知
         if (result.clamped) {
-          showToast(t('toast_clamped'), 'info')
+          showToast(t('toast.clamped'), 'info')
         }
       }
     }
@@ -902,7 +902,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
             <button 
               onClick={toggleEditMode} 
-              title="Edit custom buttons" 
+              title={t('tooltip.edit_buttons')} 
               class={`edit-mode-btn ${isEditMode ? 'active' : ''}`}
               style={{ 
                 visibility: showCustomButtons ? 'visible' : 'hidden'
@@ -912,19 +912,19 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             </button>
             <button 
               onClick={toggleCustomButtons}
-              title={showCustomButtons ? 'Hide custom buttons' : 'Show custom buttons'}
+              title={showCustomButtons ? t('tooltip.hide_buttons') : t('tooltip.show_buttons')}
               class="edit-mode-btn"
             >
               {showCustomButtons ? '▲' : '▼'}
             </button>
-            <button onClick={() => setShowHelp((v) => !v)} title="Help" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
+            <button onClick={() => setShowHelp((v) => !v)} title={t('tooltip.help')} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
             <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { setString(Keys.Lang, next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
-            <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
+            <button onClick={() => api.close()} title={t('tooltip.close')} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
         {showHelp && (
           <div class="help-text" style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5, cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text' }}>
-            {t('help_text').split('\n').map((line) => (<>
+            {t('ui.help_text').split('\n').map((line) => (<>
               {line}
               <br/>
             </>))}
@@ -1024,7 +1024,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                 style={{ position: 'relative' }}
                 onClick={() => handleCustomButtonClick(button, displayIndex)}
                 onMouseDown={(e: any) => e.stopPropagation()}
-                title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                title={isEditMode ? t('tooltip.click_edit') : formatSeconds(button.seconds)}
               >
                 {/* ボタン本体 - 常に表示 */}
                 <div
@@ -1056,7 +1056,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                   onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
                 >
                   <div class="label-field">
-                    <label>Label (12 chars max)</label>
+                    <label>{t('popup.label_with_max')}</label>
                     <input
                       type="text"
                       value={editingValues.label}
@@ -1067,7 +1067,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                     />
                   </div>
                   <div class="label-field">
-                    <label>Seconds to seek</label>
+                    <label>{t('popup.seconds_to_seek')}</label>
                     <input
                       type="number"
                       value={editingValues.seconds}
@@ -1076,8 +1076,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                     />
                   </div>
                   <div class="editor-buttons">
-                    <button class="save" onClick={saveEditButton}>Save</button>
-                    <button class="cancel" onClick={cancelEditButton}>Cancel</button>
+                    <button class="save" onClick={saveEditButton}>{t('popup.save')}</button>
+                    <button class="cancel" onClick={cancelEditButton}>{t('popup.cancel')}</button>
                   </div>
                 </div>
               ) : (
@@ -1086,7 +1086,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                   onClick={addNewButton}
                   onMouseDown={(e: any) => e.stopPropagation()}
                   style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                  title="Add new button"
+                  title={t('tooltip.add_button')}
                 >
                   +
                 </div>
@@ -1103,7 +1103,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           open={editingButton !== null}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (12 chars max)</label>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>{t('popup.label_with_max')}</label>
             <input
               type="text"
               value={editingValues.label}
@@ -1133,7 +1133,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Seconds to seek</label>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>{t('popup.seconds_to_seek')}</label>
             <input
               type="number"
               value={editingValues.seconds}
@@ -1174,7 +1174,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                 borderRadius: '4px',
                 transition: 'all 0.15s'
               }}
-            >Save</button>
+            >{t('popup.save')}</button>
             <button 
               onClick={cancelEditButton}
               style={{
@@ -1188,7 +1188,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                 borderRadius: '4px',
                 transition: 'all 0.15s'
               }}
-            >Cancel</button>
+            >{t('popup.cancel')}</button>
           </div>
         </EditPopupPortal>
       </div>

@@ -15,7 +15,7 @@ export type SeekCommand =
 
 export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand): void {
   if (isAdActive()) {
-    showToast(t('toast_ad_paused'), 'warn');
+    showToast(t('toast.ad_paused'), 'warn');
     return;
   }
   const MIN = 60;
@@ -31,7 +31,7 @@ export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand)
 
   // クランプが発生した場合はトースト通知
   if (result.clamped) {
-    showToast(t('toast_clamped'), 'info');
+    showToast(t('toast.clamped'), 'info');
   }
 
   console.log('[Content] Seek result', {
