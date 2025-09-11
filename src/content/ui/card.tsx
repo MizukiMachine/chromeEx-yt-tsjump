@@ -503,6 +503,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             gap: 4px; 
             margin-bottom: 8px;
             width: 100%;
+            border-radius: 6px;
+            transition: all 0.3s ease;
           }
           .custom-button { 
             position: relative; 
@@ -528,8 +530,16 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             flex: 1 1 calc(33.33% - 3px);
             max-width: calc(33.33% - 3px);
           }
-          .edit-mode .custom-button { background: #2a2a2a; border: 1px dashed rgba(255,255,255,0.2); }
-          .edit-mode .custom-button:hover { background: #333; transform: scale(1.05); }
+          .edit-mode .custom-button { 
+            background: rgba(59, 130, 246, 0.15);
+            border: 2px dashed rgba(147, 197, 253, 0.7);
+            box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+          }
+          .edit-mode .custom-button:hover { 
+            background: rgba(59, 130, 246, 0.25);
+            transform: scale(1.05);
+            border-color: rgba(147, 197, 253, 1);
+          }
           .custom-button:hover { background: #333; }
           .custom-button:active { background: #444; }
           .custom-button-editor { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #333; border: 1px solid #666; border-radius: 4px; padding: 2px; display: flex; flex-direction: column; gap: 1px; z-index: 10; }
