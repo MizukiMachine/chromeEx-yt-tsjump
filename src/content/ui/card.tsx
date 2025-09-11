@@ -261,6 +261,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       api.close = () => {
         setOpen(false)
         setString(KEY_OPEN, '0')
+        // 操作パネル閉じる時に編集状態もリセット
+        setIsEditMode(false)
+        setEditingButton(null)
+        setEditingValues({ label: '', seconds: '' })
       }
       api.toggle = () => (open ? api.close() : api.openSmart())
       api.isTyping = () => typing
