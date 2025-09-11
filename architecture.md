@@ -169,23 +169,21 @@ E2E（Playwright）
 ## ■ 新機能設計（カスタムシークボタン）
 
 ### カスタムボタン UI 拡張
-- **card.tsx の拡張**: 操作パネル最上段にカスタムボタン群を追加
-- **レスポンシブレイアウト**: CSS Flexbox で 6×1 → 3×2 の自動折り返し
+- **card.tsx の拡張**: 操作パネル3段目にカスタムボタン群を追加
+- **レスポンシブレイアウト**: CSS Grid + Ghost DOM測定で 6×1 ↔ 3×2 のインテリジェント切り替え
   ```css
-  .custom-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    max-width: 100%;
+  .custom-buttons.row {
+    grid-template-columns: repeat(var(--cols, 6), 1fr);
   }
-  .custom-button {
-    flex: 1 1 calc(16.67% - 4px); /* 6 buttons per row */
-    min-width: 40px;
-    max-width: 60px;
+  .custom-buttons.compact {
+    grid-template-columns: repeat(3, 1fr);
   }
-  @media (max-width: 360px) {
-    .custom-button {
-      flex: 1 1 calc(33.33% - 4px); /* 3 buttons per row */
-    }
+  /* Ghost DOM測定用の計測モード */
+  .custom-buttons[data-measure="1"] {
+    position: absolute !important;
+    visibility: hidden !important;
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
   }
   ```
 
@@ -193,7 +191,7 @@ E2E（Playwright）
 - **型定義**: `CustomButton { label: string, seconds: number, enabled: boolean }`
 - **保存先**: `localStorage['custom-buttons']` に配列形式
 - **デフォルト値**: 6 ボタン設定を初期化時にロード
-- **バリデーション**: `^[A-Za-z0-9+\-]{1,4}$` パターンマッチング
+- **バリデーション**: `^[A-Za-z0-9+\-]{1,12}$` パターンマッチング
 
 ### シーク処理の共通化
 - **core/seek.ts 拡張**:
