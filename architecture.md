@@ -47,21 +47,22 @@ src/
       jump.ts                 # 入力→t_target→端ジャンプ
       adsense.ts              # MutationObserver で広告検知
     ui/
-      card.tsx                # 入力カード（TZ ドロップダウン MRU）
-      toast.tsx               # フレンドリートースト
-      debug.tsx               # デバッグパネル（Alt+Shift+D）
+      card.tsx                # 入力カード（TZ ドロップダウン MRU、カスタムボタン）
+      toast.ts                # フレンドリートースト
+      debug.tsx               # デバッグパネル（Alt+Shift+L）
       hooks/                  # UI関連カスタムフック
         useCardPosition.ts    # カード位置管理
         useDragHandling.ts    # ドラッグ処理
         useTimezoneData.ts    # TZ・MRU管理
     utils/                    # ユーティリティ
-      i18n.ts                 # 国際化
+      i18n.ts                 # 多言語化（カテゴリ分け辞書、型安全）
       layout.ts               # レイアウト・位置計算
     log/
       buffer.ts               # 固定長リング（N=200）
       emit.ts                 # イベント集約
     store/
       local.ts                # localStorage（位置、ピン、TZ、MRU）
+      customButtons.ts        # カスタムボタン設定・バリデーション
     dom/video.ts              # `<video>` 検出ユーティリティ
     handlers/
       commands.ts             # コマンドハンドラ
@@ -75,9 +76,11 @@ src/
 
 ### ディレクトリ構造の意図
 
+- `content/ui/`: UI コンポーネント（カード、トースト、デバッグパネル、カスタムボタン）
 - `content/ui/hooks/`: Preactカスタムフック（位置管理、ドラッグ、TZ管理）
-- `content/utils/`: 汎用ユーティリティ（国際化、レイアウト計算）
-- `content/core/`: ビジネスロジック（時刻変換、シーク、ジャンプ）
+- `content/utils/`: 汎用ユーティリティ（多言語化、レイアウト計算）
+- `content/core/`: ビジネスロジック（時刻変換、シーク、ジャンプ、広告検知）
+- `content/store/`: 設定管理・永続化（localStorage、カスタムボタン）
 - `content/handlers/`: イベント処理
 - モジュール間の依存関係を明確化し、循環依存を回避
 
@@ -245,9 +248,62 @@ src/options/
 - **レイアウト計算**: `ResizeObserver` で画面幅変化を監視
 - **設定保存**: デバウンス処理で連続入力時の保存負荷軽減
 
+## ■ 多言語化システム（S16.6追加）
+
+### カテゴリ分け辞書構造
+```typescript
+interface I18nDict {
+  ui: {          // メインUI（ヘッダー、ボタン、プレースホルダー、ヘルプ）
+    jump_header: string
+    jump_button: string
+    placeholder_time: string
+    help_text: string
+  }
+  popup: {       // 編集ポップアップ
+    label_with_max: string     // "表示ラベル（英数字, +, -, 12文字まで）"
+    seconds_to_seek: string    // "移動秒数"
+    save: string
+    cancel: string
+  }
+  tooltip: {     // ツールチップ
+    click_edit: string
+    add_button: string
+    edit_buttons: string
+    show_buttons: string
+    hide_buttons: string
+    help: string
+    close: string
+    seconds_format: string     // "{0} seconds" / "{0}秒"
+  }
+  toast: {       // トースト通知
+    moved_current: string
+    moved_start: string
+    ad_paused: string
+    clamped: string
+  }
+}
+```
+
+### 使用方法
+```typescript
+// カテゴリ分けキー
+t('ui.jump_header')           // 'Jump to timestamp' / 'タイムスタンプへジャンプ'
+t('popup.save')               // 'Save' / '保存'
+t('tooltip.click_edit')       // 'Click to edit' / 'クリックして編集'
+
+// テンプレート（引数付き）
+t('tooltip.seconds_format', '+30')  // '+30 seconds' / '+30秒'
+formatSeconds(30)                    // 便利関数
+```
+
+### 特徴
+- **型安全**: TypeScript インターフェースで型チェック
+- **後方互換**: 既存の flat キー（`toast_*` など）も継続サポート
+- **適切な用語**: 日本語では「シーク」→「移動」など自然な表現を採用
+
 ## ■ 将来拡張フック
 
-- 国際化（i18n）プレースホルダ
 - 任意分数の長時間シーク設定
 - より高度な広告検知の切替可能化
 - タイムゾーンのインポート/エクスポート
+- 言語追加（韓国語、中国語など）
