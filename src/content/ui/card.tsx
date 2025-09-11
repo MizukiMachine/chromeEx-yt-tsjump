@@ -1,5 +1,6 @@
 import { render, h } from 'preact'
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { createPortal } from 'preact/compat'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
 import { t, getLang } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
@@ -15,6 +16,112 @@ import { showToast } from './toast'
 const KEY_OPEN = Keys.CardOpen
 
 type GetVideo = () => HTMLVideoElement | null
+
+// ポータル用のフック - 要素の位置を追跡してbody直下にポップアップを表示
+function useAnchorPosition(anchor: HTMLElement | null, offsetY = 8) {
+  const [pos, setPos] = useState<{left: number; top: number}>({ left: 0, top: 0 })
+  
+  useLayoutEffect(() => {
+    if (!anchor) return
+    
+    const updatePosition = () => {
+      const rect = anchor.getBoundingClientRect()
+      setPos({ 
+        left: rect.left + rect.width / 2,
+        top: rect.bottom + offsetY 
+      })
+    }
+    
+    updatePosition()
+    window.addEventListener('scroll', updatePosition, { passive: true })
+    window.addEventListener('resize', updatePosition)
+    // YouTube UI更新への対応
+    const interval = setInterval(updatePosition, 1000)
+    
+    return () => {
+      window.removeEventListener('scroll', updatePosition)
+      window.removeEventListener('resize', updatePosition)
+      clearInterval(interval)
+    }
+  }, [anchor, offsetY])
+  
+  return pos
+}
+
+// EditPopupPortal - ポップアップをbody直下にポータル描画
+function EditPopupPortal({ anchorEl, open, children }: {
+  anchorEl: HTMLElement | null;
+  open: boolean;
+  children: preact.ComponentChildren;
+}) {
+  const portalRootRef = useRef<HTMLElement | null>(null)
+  
+  // portal rootの初期化
+  if (!portalRootRef.current && open) {
+    const root = document.createElement('div')
+    root.id = 'yt-longseek-portal-root'
+    root.style.position = 'fixed'
+    root.style.inset = '0 auto auto 0'
+    root.style.zIndex = '2147483647'
+    root.style.pointerEvents = 'none' // 透過
+    document.body.appendChild(root)
+    portalRootRef.current = root
+  }
+  
+  // portal rootのクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (portalRootRef.current && document.body.contains(portalRootRef.current)) {
+        document.body.removeChild(portalRootRef.current)
+        portalRootRef.current = null
+      }
+    }
+  }, [])
+  
+  const { left, top } = useAnchorPosition(anchorEl, 8)
+  
+  if (!open || !portalRootRef.current) return null
+  
+  const popup = (
+    <div
+      style={{
+        position: 'fixed',
+        left: `${left}px`,
+        top: `${top}px`,
+        transform: 'translateX(-50%)',
+        pointerEvents: 'auto', // ポップアップは操作可能
+        background: 'rgba(17,17,17,0.95)',
+        border: '2px solid rgba(147, 197, 253, 0.7)',
+        borderRadius: '8px',
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        zIndex: 1, // portal内では相対的なz-index
+        minWidth: '180px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+      }}
+    >
+      {/* 三角形の矢印 */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '-8px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '0',
+          height: '0',
+          borderLeft: '8px solid transparent',
+          borderRight: '8px solid transparent',
+          borderBottom: '8px solid rgba(147, 197, 253, 0.7)'
+        }}
+      />
+      {children}
+    </div>
+  )
+  
+  return createPortal(popup, portalRootRef.current)
+}
 
 export type CardAPI = {
   open: () => void
@@ -64,6 +171,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const [editingValues, setEditingValues] = useState<{ label: string; seconds: string }>({ label: '', seconds: '' })
     const [isCompactLayout, setIsCompactLayout] = useState(false)
     const [showCustomButtons, setShowCustomButtons] = useState(false)
+    // ポータル用のボタン要素参照
+    const buttonRefs = useRef<(HTMLElement | null)[]>([])
     // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
@@ -262,19 +371,20 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     }, [])
 
     // カスタムボタンの編集処理
-    const startEditButton = (index: number) => {
-      if (!isEditMode) return // 編集モードでない場合は何もしない
-      
-      const config = loadCustomButtons()
-      const allButtons = config.buttons
-      const buttonToEdit = allButtons[index]
-      if (buttonToEdit) {
-        setEditingButton(index)
-        setEditingValues({
-          label: buttonToEdit.label,
-          seconds: buttonToEdit.seconds.toString()
-        })
+    const startEditButton = (displayIndex: number) => {
+      if (!isEditMode) {
+        return // 編集モードでない場合は何もしない
       }
+      
+      // 表示中のボタンから実際のボタンを取得
+      const button = customButtons[displayIndex]
+      if (!button) return
+      
+      setEditingButton(displayIndex)
+      setEditingValues({
+        label: button.label,
+        seconds: button.seconds.toString()
+      })
     }
     
     const toggleEditMode = () => {
@@ -303,8 +413,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const saveEditButton = () => {
       if (editingButton === null) return
       
-      const config = loadCustomButtons()
-      const newButtons = [...config.buttons]
+      // 編集中のボタンを取得
+      const buttonToEdit = customButtons[editingButton]
+      if (!buttonToEdit) return
       
       const labelValidation = validateLabel(editingValues.label)
       const secondsValue = parseInt(editingValues.seconds) || 0
@@ -320,17 +431,30 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         return
       }
       
-      newButtons[editingButton] = {
-        label: editingValues.label,
-        seconds: secondsValue,
-        enabled: editingValues.label.trim() !== ''
-      }
+      // 全体設定を読み込んでマッチするボタンを更新
+      const config = loadCustomButtons()
+      const newButtons = [...config.buttons]
       
-      saveCustomButtons({ buttons: newButtons })
-      setCustomButtons(getEnabledButtons({ buttons: newButtons }))
-      setEditingButton(null)
-      setEditingValues({ label: '', seconds: '' })
-      showToast('Button updated!', 'info')
+      // 元のボタンを全体配列で見つけて更新
+      const fullArrayIndex = newButtons.findIndex(btn => 
+        btn.label === buttonToEdit.label && 
+        btn.seconds === buttonToEdit.seconds && 
+        btn.enabled
+      )
+      
+      if (fullArrayIndex !== -1) {
+        newButtons[fullArrayIndex] = {
+          label: editingValues.label,
+          seconds: secondsValue,
+          enabled: editingValues.label.trim() !== ''
+        }
+        
+        saveCustomButtons({ buttons: newButtons })
+        setCustomButtons(getEnabledButtons({ buttons: newButtons }))
+        setEditingButton(null)
+        setEditingValues({ label: '', seconds: '' })
+        showToast('Button updated!', 'info')
+      }
     }
 
     const cancelEditButton = () => {
@@ -440,10 +564,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     }
 
     // カスタムボタンクリックハンドラ
-    function handleCustomButtonClick(button: any, actualIndex: number) {
+    function handleCustomButtonClick(button: any, displayIndex: number) {
       if (isEditMode) {
         // 編集モードの場合は編集開始
-        startEditButton(actualIndex)
+        startEditButton(displayIndex)
       } else {
         // 通常モードの場合はシーク実行
         const v = getVideo()
@@ -496,7 +620,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             transition: all 0.3s ease;
           }
           .custom-button { 
-            position: relative; 
+            position: relative !important; 
             flex: 1 1 auto;
             min-width: 35px;
             max-width: 60px;
@@ -532,13 +656,81 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           }
           .custom-button:hover { background: #333; }
           .custom-button:active { background: #444; }
-          .custom-button-editor { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #333; border: 1px solid #666; border-radius: 4px; padding: 2px; display: flex; flex-direction: column; gap: 1px; z-index: 10; }
-          .custom-button-editor input { background: #444; border: 1px solid #666; color: #fff; font-size: 9px; padding: 1px 2px; border-radius: 2px; width: 100%; box-sizing: border-box; }
-          .custom-button-editor .editor-buttons { display: flex; gap: 1px; }
-          .custom-button-editor .editor-buttons button { flex: 1; font-size: 8px; padding: 1px; background: #555; border: 1px solid #777; color: #fff; cursor: pointer; border-radius: 2px; }
-          .custom-button-editor .editor-buttons button:hover { background: #666; }
-          .custom-button-editor .editor-buttons .save { background: #4a4; }
-          .custom-button-editor .editor-buttons .cancel { background: #a44; }
+          .custom-button-editor { 
+            position: absolute; 
+            bottom: 100%; 
+            left: 50%; 
+            transform: translateX(-50%) translateY(-8px);
+            background: #ff6b35; 
+            border: 2px solid rgba(147, 197, 253, 0.7);
+            border-radius: 8px; 
+            padding: 10px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            z-index: 2147483647;
+            min-width: 150px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          }
+          .custom-button-editor::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 8px solid transparent;
+            border-top-color: rgba(147, 197, 253, 0.7);
+          }
+          .custom-button-editor input { 
+            background: #1a1a1a; 
+            border: 1px solid #555; 
+            color: #fff; 
+            font-size: 12px; 
+            padding: 6px 8px; 
+            border-radius: 4px; 
+            width: 100%; 
+            box-sizing: border-box;
+            outline: none;
+          }
+          .custom-button-editor input:focus {
+            border-color: rgba(147, 197, 253, 0.7);
+          }
+          .custom-button-editor .label-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .custom-button-editor .label-field label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+          }
+          .custom-button-editor .editor-buttons { display: flex; gap: 6px; margin-top: 4px; }
+          .custom-button-editor .editor-buttons button { 
+            flex: 1; 
+            font-size: 11px; 
+            padding: 6px 8px; 
+            background: #444; 
+            border: 1px solid #666; 
+            color: #fff; 
+            cursor: pointer; 
+            border-radius: 4px;
+            transition: all 0.15s;
+          }
+          .custom-button-editor .editor-buttons button:hover { 
+            background: #555; 
+            transform: scale(1.02);
+          }
+          .custom-button-editor .editor-buttons .save { 
+            background: rgba(59, 130, 246, 0.7); 
+            border-color: rgba(147, 197, 253, 0.7);
+          }
+          .custom-button-editor .editor-buttons .save:hover { 
+            background: rgba(59, 130, 246, 0.9); 
+          }
+          .custom-button-editor .editor-buttons .cancel { 
+            background: #444; 
+          }
           .edit-mode-btn { background: transparent; color: #bbb; border: 0; cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: all 0.15s; }
           .edit-mode-btn.active { background: rgba(255,255,255,0.1); color: #fff; }
         `}</style>
@@ -570,48 +762,18 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         {showCustomButtons && (
           <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`}>
           {customButtons.map((button, displayIndex) => {
-            // 全ボタン配列での実際のインデックスを取得
-            const allButtons = loadCustomButtons().buttons
-            const actualIndex = allButtons.findIndex(btn => 
-              btn.label === button.label && 
-              btn.seconds === button.seconds && 
-              btn.enabled
-            )
-            
             return (
-              <div key={displayIndex} class="custom-button">
-                {editingButton === actualIndex ? (
-                  // 編集モード
-                  <div class="custom-button-editor" onMouseDown={(e: any) => e.stopPropagation()}>
-                    <input
-                      type="text"
-                      value={editingValues.label}
-                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
-                      placeholder="Label"
-                      maxLength={4}
-                    />
-                    <input
-                      type="number"
-                      value={editingValues.seconds}
-                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
-                      placeholder="Seconds"
-                    />
-                    <div class="editor-buttons">
-                      <button class="save" onClick={saveEditButton}>✓</button>
-                      <button class="cancel" onClick={cancelEditButton}>✕</button>
-                    </div>
-                  </div>
-                ) : (
-                  // 通常モード
-                  <div
-                    onClick={() => handleCustomButtonClick(button, actualIndex)}
-                    onMouseDown={(e: any) => e.stopPropagation()}
-                    style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
-                  >
-                    {button.label}
-                  </div>
-                )}
+              <div key={displayIndex} class="custom-button" style={{ position: 'relative' }}>
+                {/* ボタン本体 - 常に表示 */}
+                <div
+                  ref={el => { buttonRefs.current[displayIndex] = el }}
+                  onClick={() => handleCustomButtonClick(button, displayIndex)}
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                >
+                  {button.label}
+                </div>
               </div>
             )
           })}
@@ -620,23 +782,40 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             <div class="custom-button" style={{ opacity: 0.6, border: '1px dashed #666' }}>
               {editingButton !== null && loadCustomButtons().buttons[editingButton] && !loadCustomButtons().buttons[editingButton].enabled ? (
                 // 新規追加の編集モード
-                <div class="custom-button-editor" onMouseDown={(e: any) => e.stopPropagation()}>
-                  <input
-                    type="text"
-                    value={editingValues.label}
-                    onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
-                    placeholder="Label"
-                    maxLength={4}
-                  />
-                  <input
-                    type="number"
-                    value={editingValues.seconds}
-                    onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
-                    placeholder="Seconds"
-                  />
+                <div class="custom-button-editor" 
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  onKeyDown={(e: any) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    if (e.key === 'Enter') saveEditButton()
+                    if (e.key === 'Escape') cancelEditButton()
+                  }}
+                  onKeyUp={(e: any) => { e.stopPropagation(); e.preventDefault() }}
+                  onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
+                >
+                  <div class="label-field">
+                    <label>Label (4 chars max)</label>
+                    <input
+                      type="text"
+                      value={editingValues.label}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+                      placeholder="e.g. +30"
+                      maxLength={4}
+                      autoFocus
+                    />
+                  </div>
+                  <div class="label-field">
+                    <label>Seconds to seek</label>
+                    <input
+                      type="number"
+                      value={editingValues.seconds}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
+                      placeholder="e.g. 30 or -30"
+                    />
+                  </div>
                   <div class="editor-buttons">
-                    <button class="save" onClick={saveEditButton}>✓</button>
-                    <button class="cancel" onClick={cancelEditButton}>✕</button>
+                    <button class="save" onClick={saveEditButton}>Save</button>
+                    <button class="cancel" onClick={cancelEditButton}>Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -738,6 +917,95 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           </div>
         </form>
         {/* footer helper text removed; use ? button for help */}
+        
+        {/* ポータル経由の編集ポップアップ */}
+        <EditPopupPortal 
+          anchorEl={buttonRefs.current[editingButton ?? -1] || null}
+          open={editingButton !== null}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (4 chars max)</label>
+            <input
+              type="text"
+              value={editingValues.label}
+              onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+              placeholder="e.g. +30"
+              maxLength={4}
+              autoFocus
+              style={{
+                background: '#1a1a1a',
+                border: '1px solid #555',
+                color: '#fff',
+                fontSize: '12px',
+                padding: '6px 8px',
+                borderRadius: '4px',
+                width: '100%',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+              onKeyDown={(e: any) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') saveEditButton()
+                if (e.key === 'Escape') cancelEditButton()
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Seconds to seek</label>
+            <input
+              type="number"
+              value={editingValues.seconds}
+              onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
+              placeholder="e.g. 30 or -30"
+              style={{
+                background: '#1a1a1a',
+                border: '1px solid #555',
+                color: '#fff',
+                fontSize: '12px',
+                padding: '6px 8px',
+                borderRadius: '4px',
+                width: '100%',
+                boxSizing: 'border-box',
+                outline: 'none'
+              }}
+              onKeyDown={(e: any) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') saveEditButton()
+                if (e.key === 'Escape') cancelEditButton()
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+            <button 
+              onClick={saveEditButton}
+              style={{
+                flex: '1',
+                fontSize: '11px',
+                padding: '6px 8px',
+                background: 'rgba(59, 130, 246, 0.7)',
+                border: '1px solid rgba(147, 197, 253, 0.7)',
+                color: '#fff',
+                cursor: 'pointer',
+                borderRadius: '4px',
+                transition: 'all 0.15s'
+              }}
+            >Save</button>
+            <button 
+              onClick={cancelEditButton}
+              style={{
+                flex: '1',
+                fontSize: '11px',
+                padding: '6px 8px',
+                background: '#444',
+                border: '1px solid #666',
+                color: '#fff',
+                cursor: 'pointer',
+                borderRadius: '4px',
+                transition: 'all 0.15s'
+              }}
+            >Cancel</button>
+          </div>
+        </EditPopupPortal>
       </div>
     )
   }
