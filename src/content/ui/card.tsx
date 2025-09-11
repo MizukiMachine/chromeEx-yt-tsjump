@@ -15,6 +15,13 @@ import { showToast } from './toast'
 // ストレージキー
 const KEY_OPEN = Keys.CardOpen
 
+// カスタムボタンレイアウト計算用定数
+// カード幅300px - padding左右24px = 276px利用可能
+const BTN_MIN_WIDTH = 35  // ボタン最小幅（px）
+const BTN_GAP = 4         // ボタン間ギャップ（px）
+const BTN_COUNT = 6       // ボタン数
+const LAYOUT_THRESHOLD = BTN_COUNT * BTN_MIN_WIDTH + (BTN_COUNT - 1) * BTN_GAP // 230px
+
 type GetVideo = () => HTMLVideoElement | null
 
 // ポータル用のフック - 要素の位置を追跡してbody直下にポップアップを表示
@@ -185,7 +192,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setCustomButtons(getEnabledButtons(loadCustomButtons()))
       })
     }, [])
-    const [isCompactLayout, setIsCompactLayout] = useState(false)
+    // レイアウト状態：null = 未確定（非表示）, false = 6×1, true = 3×2
+    const [isCompactLayout, setIsCompactLayout] = useState<boolean | null>(null)
     const [showCustomButtons, setShowCustomButtons] = useState(false)
     // ポータル用のボタン要素参照
     const buttonRefs = useRef<(HTMLElement | null)[]>([])
@@ -334,8 +342,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           return clamped
         })
         
-        // ボタンレイアウトのチェック
-        checkButtonLayout()
+        // ボタンレイアウトの再チェック（表示中の場合のみ）
+        if (showCustomButtons && isCompactLayout !== null) {
+          determineButtonLayout()
+        }
       }
       window.addEventListener('resize', onResize)
       document.addEventListener('fullscreenchange', onResize)
@@ -343,29 +353,28 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); window.removeEventListener('orientationchange', onResize) }
     }, [])
     
-    // ボタンレイアウトのチェック - 実際のDOM要素の幅を測定
-    const checkButtonLayout = () => {
+    // カスタムボタンのレイアウト決定（useLayoutEffectで呼び出し）
+    const determineButtonLayout = () => {
       const customButtonsContainer = cardRef.current?.querySelector('.custom-buttons')
       if (!customButtonsContainer) {
         setIsCompactLayout(false)
         return
       }
       
-      // 一時的に1行レイアウトにして幅を測定
-      customButtonsContainer.classList.remove('compact')
-      const containerWidth = (customButtonsContainer as HTMLElement).offsetWidth
-      const buttons = customButtonsContainer.querySelectorAll('.custom-button')
+      // コンテナ幅をチェック（ボタン個別採寸は不要）
+      const containerWidth = (customButtonsContainer as HTMLElement).getBoundingClientRect().width
       
-      let totalButtonWidth = 0
-      buttons.forEach(button => {
-        totalButtonWidth += (button as HTMLElement).offsetWidth
+      // デバッグログ
+      console.log('Layout calculation:', {
+        containerWidth,
+        threshold: LAYOUT_THRESHOLD,
+        cardWidth: cardRef.current?.getBoundingClientRect().width,
+        needsCompact: containerWidth < LAYOUT_THRESHOLD
       })
       
-      // ガップ分を追加 (4px * (buttons.length - 1))
-      const totalWidth = totalButtonWidth + (buttons.length > 0 ? (buttons.length - 1) * 4 : 0)
-      
-      // コンテナ幅を超える場合は2行レイアウト
-      setIsCompactLayout(totalWidth > containerWidth)
+      // 閾値と比較してレイアウト決定
+      const needsCompact = containerWidth < LAYOUT_THRESHOLD
+      setIsCompactLayout(needsCompact)
     }
     
     // カスタムボタンの表示状態初期化 - 常に非表示から開始
@@ -374,12 +383,34 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       setShowCustomButtons(false)
     }, [])
 
-    useEffect(() => {
-      // カスタムボタンが表示されている場合のみレイアウトチェック
-      if (showCustomButtons) {
-        setTimeout(checkButtonLayout, 0)
+    // カスタムボタン表示時の初期レイアウト決定（描画前に実行）
+    useLayoutEffect(() => {
+      if (!showCustomButtons) {
+        setIsCompactLayout(null) // 非表示時は未確定状態に
+        return
       }
-    }, [customButtons, isEditMode, showCustomButtons])
+      
+      // DOM要素の準備を確実に待つ
+      requestAnimationFrame(() => {
+        determineButtonLayout()
+      })
+    }, [showCustomButtons])
+
+    // リサイズやボタン変更時のレイアウト再計算
+    useEffect(() => {
+      if (showCustomButtons && isCompactLayout !== null) {
+        // ResizeObserverでコンテナサイズ変化を監視
+        const container = cardRef.current?.querySelector('.custom-buttons')
+        if (!container) return
+        
+        const resizeObserver = new ResizeObserver(() => {
+          determineButtonLayout()
+        })
+        
+        resizeObserver.observe(container as Element)
+        return () => resizeObserver.disconnect()
+      }
+    }, [showCustomButtons, customButtons, isEditMode])
 
     // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
     useEffect(() => {
@@ -433,6 +464,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setEditingValues({ label: '', seconds: '' })
       }
       
+      // useLayoutEffectが自動的にレイアウトを処理するため、手動チェック不要
       // セッション内のみ保持（localStorageには保存しない）
     }
 
@@ -649,7 +681,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             position: relative !important; 
             flex: 1 1 auto;
             min-width: 35px;
-            max-width: 60px;
+            max-width: 120px;
             padding: 4px 6px; 
             font-size: 11px; 
             background: #222; 
@@ -872,7 +904,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         </form>
         {/* カスタムシークボタン - 3段目に配置 */}
         {showCustomButtons && (
-          <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`} style={{ marginTop: '8px' }}>
+          <div 
+            class={`custom-buttons ${isCompactLayout === true ? 'compact' : ''}`} 
+            style={{ 
+              marginTop: '8px',
+              visibility: isCompactLayout === null ? 'hidden' : 'visible'
+            }}
+          >
           {customButtons.map((button, displayIndex) => {
             return (
               <div 
@@ -913,13 +951,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                   onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
                 >
                   <div class="label-field">
-                    <label>Label (4 chars max)</label>
+                    <label>Label (8 chars max)</label>
                     <input
                       type="text"
                       value={editingValues.label}
                       onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
                       placeholder="e.g. +30"
-                      maxLength={4}
+                      maxLength={8}
                       autoFocus
                     />
                   </div>
@@ -960,13 +998,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           open={editingButton !== null}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (4 chars max)</label>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (8 chars max)</label>
             <input
               type="text"
               value={editingValues.label}
               onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
               placeholder="e.g. +30"
-              maxLength={4}
+              maxLength={8}
               autoFocus
               style={{
                 background: '#1a1a1a',

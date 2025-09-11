@@ -153,11 +153,11 @@ export function validateLabel(label: string): { valid: boolean; error?: string }
     return { valid: true }; // 空文字は無効化として許可
   }
   
-  const labelPattern = /^[A-Za-z0-9+\-]{1,4}$/;
+  const labelPattern = /^[A-Za-z0-9+\-]{1,8}$/;
   if (!labelPattern.test(label)) {
     return {
       valid: false,
-      error: 'アルファベットと数字、記号(+,-)のみ、最大4文字まで設定できます'
+      error: 'アルファベットと数字、記号(+,-)のみ、最大8文字まで設定できます'
     };
   }
   
