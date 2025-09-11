@@ -405,17 +405,26 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       const neededRowWidth = measureRowWidthViaGhost(container, 4)
       const containerWidth = Math.floor(container.getBoundingClientRect().width)
 
-      // 判定（誤差吸収用のε）
-      const ε = 0.5
-      const needsCompact = neededRowWidth > containerWidth + ε
+      // 個別ボタンの文字数チェック（8文字以上で早期移行）
+      const buttonLabels = Array.from(buttons).map(btn => btn.textContent || '')
+      const hasLongLabel = buttonLabels.some(label => label.length >= 8)
+
+      // 判定（余裕をもって早めに3×2に移行）
+      const SAFETY_MARGIN = 8 // 8px の安全マージン
+      const exceedsWidth = neededRowWidth > containerWidth - SAFETY_MARGIN
+      const needsCompact = hasLongLabel || exceedsWidth
 
       console.log('Layout calculation (ghost DOM method):', {
         neededRowWidth,
         containerWidth,
         buttonCount: buttons.length,
         needsCompact,
-        epsilon: ε,
-        buttonLabels: Array.from(buttons).map(btn => btn.textContent)
+        hasLongLabel,
+        exceedsWidth,
+        safetyMargin: SAFETY_MARGIN,
+        availableWidth: containerWidth - SAFETY_MARGIN,
+        buttonLabels,
+        longLabels: buttonLabels.filter(label => label.length >= 8)
       })
       
       setIsCompactLayout(needsCompact)
