@@ -862,14 +862,18 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`} style={{ marginTop: '8px' }}>
           {customButtons.map((button, displayIndex) => {
             return (
-              <div key={displayIndex} class="custom-button" style={{ position: 'relative' }}>
+              <div 
+                key={displayIndex} 
+                class="custom-button" 
+                style={{ position: 'relative' }}
+                onClick={() => handleCustomButtonClick(button, displayIndex)}
+                onMouseDown={(e: any) => e.stopPropagation()}
+                title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+              >
                 {/* ボタン本体 - 常に表示 */}
                 <div
                   ref={el => { buttonRefs.current[displayIndex] = el }}
-                  onClick={() => handleCustomButtonClick(button, displayIndex)}
-                  onMouseDown={(e: any) => e.stopPropagation()}
-                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
                 >
                   {button.label}
                 </div>
