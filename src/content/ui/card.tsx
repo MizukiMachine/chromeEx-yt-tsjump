@@ -283,6 +283,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       // YouTube側への伝播を原則止めるが、Alt+Shift+J はパネルのトグル用に通す
       const stop = (e: KeyboardEvent) => {
         const isToggle = e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key?.toUpperCase?.() === 'J')
+        // ESCキーでフォーカス解除
+        if (e.key === 'Escape') {
+          (e.currentTarget as HTMLInputElement)?.blur()
+          e.stopPropagation()
+          return
+        }
         if (!isToggle) e.stopPropagation()
       }
       el.addEventListener('focus', onFocus)
@@ -881,7 +887,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                     e.stopPropagation()
                     e.preventDefault()
                     if (e.key === 'Enter') saveEditButton()
-                    if (e.key === 'Escape') cancelEditButton()
+                    if (e.key === 'Escape') {
+                      (e.currentTarget as HTMLInputElement)?.blur()
+                      cancelEditButton()
+                    }
                   }}
                   onKeyUp={(e: any) => { e.stopPropagation(); e.preventDefault() }}
                   onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
@@ -956,7 +965,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               onKeyDown={(e: any) => {
                 e.stopPropagation()
                 if (e.key === 'Enter') saveEditButton()
-                if (e.key === 'Escape') cancelEditButton()
+                if (e.key === 'Escape') {
+                  (e.currentTarget as HTMLInputElement)?.blur()
+                  cancelEditButton()
+                }
               }}
             />
           </div>
@@ -981,7 +993,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               onKeyDown={(e: any) => {
                 e.stopPropagation()
                 if (e.key === 'Enter') saveEditButton()
-                if (e.key === 'Escape') cancelEditButton()
+                if (e.key === 'Escape') {
+                  (e.currentTarget as HTMLInputElement)?.blur()
+                  cancelEditButton()
+                }
               }}
             />
           </div>
