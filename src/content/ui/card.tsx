@@ -233,15 +233,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       setIsCompactLayout(totalWidth > containerWidth)
     }
     
-    // カスタムボタンの表示状態初期化
+    // カスタムボタンの表示状態初期化 - 常に非表示から開始
     useEffect(() => {
-      // 表示状態をlocalStorageから復元
-      try {
-        const stored = getString('custom-buttons-visible')
-        setShowCustomButtons(stored === 'true')
-      } catch {
-        setShowCustomButtons(false) // デフォルトは非表示
-      }
+      // 初期状態は必ず非表示（localStorageは使わない）
+      setShowCustomButtons(false)
     }, [])
 
     useEffect(() => {
@@ -302,10 +297,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setEditingValues({ label: '', seconds: '' })
       }
       
-      // localStorageに保存
-      try {
-        setString('custom-buttons-visible', newState.toString())
-      } catch {}
+      // セッション内のみ保持（localStorageには保存しない）
     }
 
     const saveEditButton = () => {
