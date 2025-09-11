@@ -405,9 +405,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       const neededRowWidth = measureRowWidthViaGhost(container, 4)
       const containerWidth = Math.floor(container.getBoundingClientRect().width)
 
-      // 個別ボタンの文字数チェック（8文字以上で早期移行）
+      // 個別ボタンの文字数チェック（10文字以上で早期移行）
       const buttonLabels = Array.from(buttons).map(btn => btn.textContent || '')
-      const hasLongLabel = buttonLabels.some(label => label.length >= 8)
+      const hasLongLabel = buttonLabels.some(label => label.length >= 10)
 
       // 判定（余裕をもって早めに3×2に移行）
       const SAFETY_MARGIN = 8 // 8px の安全マージン
@@ -424,7 +424,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         safetyMargin: SAFETY_MARGIN,
         availableWidth: containerWidth - SAFETY_MARGIN,
         buttonLabels,
-        longLabels: buttonLabels.filter(label => label.length >= 8)
+        longLabels: buttonLabels.filter(label => label.length >= 10)
       })
       
       setIsCompactLayout(needsCompact)
@@ -1056,13 +1056,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                   onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
                 >
                   <div class="label-field">
-                    <label>Label (8 chars max)</label>
+                    <label>Label (12 chars max)</label>
                     <input
                       type="text"
                       value={editingValues.label}
                       onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
                       placeholder="e.g. +30"
-                      maxLength={8}
+                      maxLength={12}
                       autoFocus
                     />
                   </div>
@@ -1103,13 +1103,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           open={editingButton !== null}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (8 chars max)</label>
+            <label style={{ fontSize: '10px', color: '#999', textTransform: 'uppercase' }}>Label (12 chars max)</label>
             <input
               type="text"
               value={editingValues.label}
               onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
               placeholder="e.g. +30"
-              maxLength={8}
+              maxLength={12}
               autoFocus
               style={{
                 background: '#1a1a1a',
