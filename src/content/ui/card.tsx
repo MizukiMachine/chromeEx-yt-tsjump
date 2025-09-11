@@ -380,9 +380,6 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       let sx = 0, sy = 0
       let startX = 0, startY = 0
       const onDown = (e: MouseEvent) => {
-        // 編集モード中はドラッグを無効化
-        if (isEditMode) return
-        
         const target = e.target as HTMLElement
         // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
         const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
@@ -421,7 +418,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
       return () => { el.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    }, [isEditMode])
+    }, [])
 
     // 提交
     async function onSubmit(e?: Event) {
@@ -476,7 +473,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
         boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '300px', pointerEvents: 'auto', display,
         opacity: .85,
-        cursor: isEditMode ? 'default' : 'move',
+        cursor: 'move',
         ...stylePos
       }}>
         {/* 視覚フィードバック＆カーソル制御（ホバー時にわずかに持ち上げる） */}
@@ -526,6 +523,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             background: rgba(59, 130, 246, 0.15);
             border: 2px dashed rgba(147, 197, 253, 0.7);
             box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+            cursor: crosshair;
           }
           .edit-mode .custom-button:hover { 
             background: rgba(59, 130, 246, 0.25);
@@ -559,7 +557,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             <button 
               onClick={toggleCustomButtons}
               title={showCustomButtons ? 'Hide custom buttons' : 'Show custom buttons'}
-              class={`edit-mode-btn ${showCustomButtons ? 'active' : ''}`}
+              class="edit-mode-btn"
             >
               {showCustomButtons ? '▲' : '▼'}
             </button>
