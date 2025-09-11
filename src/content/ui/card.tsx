@@ -91,7 +91,7 @@ function EditPopupPortal({ anchorEl, open, children }: {
         transform: 'translateX(-50%)',
         pointerEvents: 'auto', // ポップアップは操作可能
         background: 'rgba(17,17,17,0.95)',
-        border: '2px solid rgba(147, 197, 253, 0.7)',
+        border: '1px solid rgba(255, 255, 255, 0.8)',
         borderRadius: '8px',
         padding: '12px',
         display: 'flex',
@@ -113,7 +113,7 @@ function EditPopupPortal({ anchorEl, open, children }: {
           height: '0',
           borderLeft: '8px solid transparent',
           borderRight: '8px solid transparent',
-          borderBottom: '8px solid rgba(147, 197, 253, 0.7)'
+          borderBottom: '8px solid rgba(255, 255, 255, 0.8)'
         }}
       />
       {children}
@@ -982,8 +982,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                 flex: '1',
                 fontSize: '11px',
                 padding: '6px 8px',
-                background: 'rgba(59, 130, 246, 0.7)',
-                border: '1px solid rgba(147, 197, 253, 0.7)',
+                background: '#444',
+                border: '1px solid #666',
                 color: '#fff',
                 cursor: 'pointer',
                 borderRadius: '4px',
