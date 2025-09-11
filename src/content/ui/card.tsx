@@ -113,7 +113,10 @@ function EditPopupPortal({ anchorEl, open, children }: {
           height: '0',
           borderLeft: '8px solid transparent',
           borderRight: '8px solid transparent',
-          borderBottom: '8px solid rgba(255, 255, 255, 0.8)'
+          borderBottom: '8px solid rgba(255, 255, 255, 0.8)',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          pointerEvents: 'none'
         }}
       />
       {children}
@@ -618,10 +621,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             display: flex; 
             flex-wrap: wrap; 
             gap: 4px; 
-            margin-bottom: 8px;
+            margin-top: 8px;
             width: 100%;
             border-radius: 6px;
-            transition: all 0.3s ease;
+            transition: all 0.15s ease;
           }
           .custom-button { 
             position: relative !important; 
@@ -641,6 +644,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             text-overflow: ellipsis; 
             transition: all 0.15s;
             box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
           }
           /* コンパクトレイアウト - 3×2 */
           .custom-buttons.compact .custom-button {
@@ -735,21 +740,22 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           .custom-button-editor .editor-buttons .cancel { 
             background: #444; 
           }
-          .edit-mode-btn { background: transparent; color: #bbb; border: 0; cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: all 0.15s; }
+          .edit-mode-btn { background: transparent; color: #bbb; border: 0; cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: all 0.15s, visibility 0s; }
           .edit-mode-btn.active { background: rgba(255,255,255,0.1); color: #fff; }
         `}</style>
         {/* tools row (no title) */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:'6px' }}>
           <div style={{ marginLeft:'auto', display:'flex', gap:'6px' }}>
-            {showCustomButtons && (
-              <button 
-                onClick={toggleEditMode} 
-                title="Edit custom buttons" 
-                class={`edit-mode-btn ${isEditMode ? 'active' : ''}`}
-              >
-                ✎
-              </button>
-            )}
+            <button 
+              onClick={toggleEditMode} 
+              title="Edit custom buttons" 
+              class={`edit-mode-btn ${isEditMode ? 'active' : ''}`}
+              style={{ 
+                visibility: showCustomButtons ? 'visible' : 'hidden'
+              }}
+            >
+              ✎
+            </button>
             <button 
               onClick={toggleCustomButtons}
               title={showCustomButtons ? 'Hide custom buttons' : 'Show custom buttons'}
@@ -762,81 +768,6 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             <button onClick={() => api.close()} title="Close" style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
-        {/* カスタムシークボタン */}
-        {showCustomButtons && (
-          <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`}>
-          {customButtons.map((button, displayIndex) => {
-            return (
-              <div key={displayIndex} class="custom-button" style={{ position: 'relative' }}>
-                {/* ボタン本体 - 常に表示 */}
-                <div
-                  ref={el => { buttonRefs.current[displayIndex] = el }}
-                  onClick={() => handleCustomButtonClick(button, displayIndex)}
-                  onMouseDown={(e: any) => e.stopPropagation()}
-                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
-                >
-                  {button.label}
-                </div>
-              </div>
-            )
-          })}
-          {/* 新しいボタンを追加 - 編集モードのみ表示 */}
-          {isEditMode && customButtons.length < 6 && (
-            <div class="custom-button" style={{ opacity: 0.6, border: '1px dashed #666' }}>
-              {editingButton !== null && loadCustomButtons().buttons[editingButton] && !loadCustomButtons().buttons[editingButton].enabled ? (
-                // 新規追加の編集モード
-                <div class="custom-button-editor" 
-                  onMouseDown={(e: any) => e.stopPropagation()}
-                  onKeyDown={(e: any) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    if (e.key === 'Enter') saveEditButton()
-                    if (e.key === 'Escape') cancelEditButton()
-                  }}
-                  onKeyUp={(e: any) => { e.stopPropagation(); e.preventDefault() }}
-                  onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
-                >
-                  <div class="label-field">
-                    <label>Label (4 chars max)</label>
-                    <input
-                      type="text"
-                      value={editingValues.label}
-                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
-                      placeholder="e.g. +30"
-                      maxLength={4}
-                      autoFocus
-                    />
-                  </div>
-                  <div class="label-field">
-                    <label>Seconds to seek</label>
-                    <input
-                      type="number"
-                      value={editingValues.seconds}
-                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
-                      placeholder="e.g. 30 or -30"
-                    />
-                  </div>
-                  <div class="editor-buttons">
-                    <button class="save" onClick={saveEditButton}>Save</button>
-                    <button class="cancel" onClick={cancelEditButton}>Cancel</button>
-                  </div>
-                </div>
-              ) : (
-                // 新規追加ボタン
-                <div
-                  onClick={addNewButton}
-                  onMouseDown={(e: any) => e.stopPropagation()}
-                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                  title="Add new button"
-                >
-                  +
-                </div>
-              )}
-            </div>
-          )}
-          </div>
-        )}
         {showHelp && (
           <div style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5 }}>
             {t('help_text').split('\n').map((line) => (<>
@@ -920,6 +851,81 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             </div>
           </div>
         </form>
+        {/* カスタムシークボタン - 3段目に配置 */}
+        {showCustomButtons && (
+          <div class={`custom-buttons ${isCompactLayout ? 'compact' : ''}`} style={{ marginTop: '8px' }}>
+          {customButtons.map((button, displayIndex) => {
+            return (
+              <div key={displayIndex} class="custom-button" style={{ position: 'relative' }}>
+                {/* ボタン本体 - 常に表示 */}
+                <div
+                  ref={el => { buttonRefs.current[displayIndex] = el }}
+                  onClick={() => handleCustomButtonClick(button, displayIndex)}
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title={isEditMode ? 'Click to edit' : `${button.seconds > 0 ? '+' : ''}${button.seconds}秒`}
+                >
+                  {button.label}
+                </div>
+              </div>
+            )
+          })}
+          {/* 新しいボタンを追加 - 編集モードのみ表示 */}
+          {isEditMode && customButtons.length < 6 && (
+            <div class="custom-button" style={{ opacity: 0.6, border: '1px dashed #666' }}>
+              {editingButton !== null && loadCustomButtons().buttons[editingButton] && !loadCustomButtons().buttons[editingButton].enabled ? (
+                // 新規追加の編集モード
+                <div class="custom-button-editor" 
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  onKeyDown={(e: any) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    if (e.key === 'Enter') saveEditButton()
+                    if (e.key === 'Escape') cancelEditButton()
+                  }}
+                  onKeyUp={(e: any) => { e.stopPropagation(); e.preventDefault() }}
+                  onKeyPress={(e: any) => { e.stopPropagation(); e.preventDefault() }}
+                >
+                  <div class="label-field">
+                    <label>Label (4 chars max)</label>
+                    <input
+                      type="text"
+                      value={editingValues.label}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+                      placeholder="e.g. +30"
+                      maxLength={4}
+                      autoFocus
+                    />
+                  </div>
+                  <div class="label-field">
+                    <label>Seconds to seek</label>
+                    <input
+                      type="number"
+                      value={editingValues.seconds}
+                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
+                      placeholder="e.g. 30 or -30"
+                    />
+                  </div>
+                  <div class="editor-buttons">
+                    <button class="save" onClick={saveEditButton}>Save</button>
+                    <button class="cancel" onClick={cancelEditButton}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                // 新規追加ボタン
+                <div
+                  onClick={addNewButton}
+                  onMouseDown={(e: any) => e.stopPropagation()}
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  title="Add new button"
+                >
+                  +
+                </div>
+              )}
+            </div>
+          )}
+          </div>
+        )}
         {/* footer helper text removed; use ? button for help */}
         
         {/* ポータル経由の編集ポップアップ */}
