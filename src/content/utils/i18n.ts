@@ -19,7 +19,7 @@ const dict: Record<Lang, Record<string, string>> = {
     jump_button: 'Jump',
     placeholder_time: 'HH:mm:ss または HHmmss',
     help_text:
-     '・ [ Alt+Shift+J ] 操作パネルの表示/非表示を切り替え\n・ [ショートカットキー登録] chrome://extensions/shortcuts',
+     '・ [ Alt+Shift+J ] 操作パネルの表示/非表示\n・ [ショートカットキー登録] chrome://extensions/shortcuts',
     // Toast messages
     toast_moved_current: '指定時刻は範囲外のため、現在時刻に移動しました。',
     toast_moved_start: '指定時刻は範囲外のため、開始位置に移動しました。',

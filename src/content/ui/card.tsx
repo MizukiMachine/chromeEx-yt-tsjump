@@ -518,8 +518,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       let startX = 0, startY = 0
       const onDown = (e: MouseEvent) => {
         const target = e.target as HTMLElement
-        // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
-        const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
+        // 入力系やボタン、リンク、TZメニュー、ヘルプテキスト内ではドラッグ開始しない
+        const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu, .help-text'
         if (target && (target.closest(interactiveSel))) return
         draggingRef.current = true
         sx = e.clientX; sy = e.clientY
@@ -775,7 +775,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           </div>
         </div>
         {showHelp && (
-          <div style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5 }}>
+          <div class="help-text" style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5, cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text' }}>
             {t('help_text').split('\n').map((line) => (<>
               {line}
               <br/>
