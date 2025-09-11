@@ -16,12 +16,12 @@ const STORAGE_KEY = 'custom-buttons';
 
 // デフォルト設定: -60, -10, -1, +1, +10, +60 (分換算)
 const DEFAULT_BUTTONS: CustomButton[] = [
-  { label: '-60', seconds: -3600, enabled: true },
-  { label: '-10', seconds: -600, enabled: true },
-  { label: '-1', seconds: -60, enabled: true },
-  { label: '+1', seconds: 60, enabled: true },
-  { label: '+10', seconds: 600, enabled: true },
-  { label: '+60', seconds: 3600, enabled: true },
+  { label: '-60m', seconds: -3600, enabled: true },
+  { label: '-10m', seconds: -600, enabled: true },
+  { label: '-30s', seconds: -30, enabled: true },
+  { label: '+30s', seconds: 30, enabled: true },
+  { label: '+10m', seconds: 600, enabled: true },
+  { label: '+60m', seconds: 3600, enabled: true },
 ];
 
 /**
@@ -55,17 +55,27 @@ function parseButtonsConfig(parsed: any): CustomButtonsConfig {
 }
 
 /**
- * カスタムボタン設定をストレージから読み込み（同期版）
+ * カスタムボタン設定をストレージから読み込み（同期版・フォールバック用）
+ * 本来は非同期版を使用すべきだが、互換性のため残す
  */
 export function loadCustomButtons(): CustomButtonsConfig {
+  // chrome.storage.localが利用できない場合のみlocalStorageを使用
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
+    const anyChrome = (globalThis as any).chrome;
+    if (anyChrome?.storage?.local) {
+      // chrome.storage.localが利用可能な場合はデフォルト設定を返す
+      // （同期版では非同期読み込みができないため）
       return { buttons: [...DEFAULT_BUTTONS] };
+    } else {
+      // chrome.storage.localが利用できない場合のみlocalStorageを使用
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (!stored) {
+        return { buttons: [...DEFAULT_BUTTONS] };
+      }
+      
+      const parsed = JSON.parse(stored);
+      return parseButtonsConfig(parsed);
     }
-    
-    const parsed = JSON.parse(stored);
-    return parseButtonsConfig(parsed);
   } catch (error) {
     console.warn('Failed to load custom buttons config:', error);
     return { buttons: [...DEFAULT_BUTTONS] };
@@ -96,25 +106,26 @@ export async function loadCustomButtonsAsync(): Promise<CustomButtonsConfig> {
 }
 
 /**
- * カスタムボタン設定を保存（localStorage + chrome.storage.local）
+ * カスタムボタン設定を保存（chrome.storage.local優先、フォールバックでlocalStorage）
  */
 export function saveCustomButtons(config: CustomButtonsConfig): void {
   try {
-    // localStorageに保存
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    
-    // chrome.storage.localにも保存
-    try {
-      const anyChrome = (globalThis as any).chrome;
-      if (anyChrome?.storage?.local) {
-        anyChrome.storage.local.set({ [STORAGE_KEY]: config });
-      }
-    } catch {
-      console.warn('Failed to save to chrome.storage.local, using localStorage only');
+    const anyChrome = (globalThis as any).chrome;
+    if (anyChrome?.storage?.local) {
+      // chrome.storage.localに保存（拡張機能削除時にクリアされる）
+      anyChrome.storage.local.set({ [STORAGE_KEY]: config });
+    } else {
+      // chrome.storage.localが利用できない場合のみlocalStorageを使用
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
     }
   } catch (error) {
-    console.error('Failed to save custom buttons config:', error);
-    throw new Error('設定の保存に失敗しました');
+    // chrome.storage.localで失敗した場合のフォールバック
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    } catch (fallbackError) {
+      console.error('Failed to save custom buttons config:', error, fallbackError);
+      throw new Error('設定の保存に失敗しました');
+    }
   }
 }
 
@@ -166,4 +177,15 @@ export function validateSeconds(seconds: number): { valid: boolean; error?: stri
   }
   
   return { valid: true };
+}
+
+/**
+ * 古いlocalStorage設定をクリア（マイグレーション用）
+ */
+export function clearLegacyStorage(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore errors
+  }
 }

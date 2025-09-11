@@ -6,7 +6,7 @@ import { t, getLang } from '../utils/i18n'
 import { jumpToLocalTime } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
-import { loadCustomButtons, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds } from '../store/customButtons'
+import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds, clearLegacyStorage } from '../store/customButtons'
 import { seekBySeconds } from '../core/seek'
 import { isAdActive } from '../core/adsense'
 import { showToast } from './toast'
@@ -172,6 +172,19 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const [isEditMode, setIsEditMode] = useState(false)
     const [editingButton, setEditingButton] = useState<number | null>(null)
     const [editingValues, setEditingValues] = useState<{ label: string; seconds: string }>({ label: '', seconds: '' })
+    
+    // カスタムボタン設定の非同期読み込み
+    useEffect(() => {
+      // 古いlocalStorage設定をクリア（マイグレーション）
+      clearLegacyStorage()
+      
+      loadCustomButtonsAsync().then(config => {
+        setCustomButtons(getEnabledButtons(config))
+      }).catch(() => {
+        // エラー時はデフォルト設定を使用
+        setCustomButtons(getEnabledButtons(loadCustomButtons()))
+      })
+    }, [])
     const [isCompactLayout, setIsCompactLayout] = useState(false)
     const [showCustomButtons, setShowCustomButtons] = useState(false)
     // ポータル用のボタン要素参照
