@@ -15,12 +15,10 @@ import { showToast } from './toast'
 // ストレージキー
 const KEY_OPEN = Keys.CardOpen
 
-// カスタムボタンレイアウト計算用定数
-// カード幅300px - padding左右24px = 276px利用可能
-const BTN_MIN_WIDTH = 35  // ボタン最小幅（px）
-const BTN_GAP = 4         // ボタン間ギャップ（px）
-const BTN_COUNT = 6       // ボタン数
-const LAYOUT_THRESHOLD = BTN_COUNT * BTN_MIN_WIDTH + (BTN_COUNT - 1) * BTN_GAP // 230px
+// カスタムボタンレイアウト計算用定数（実際のボタン幅測定に変更したため閾値は不使用）
+// const BTN_MIN_WIDTH = 35  // ボタン最小幅（px）
+// const BTN_GAP = 4         // ボタン間ギャップ（px）
+// const BTN_COUNT = 6       // ボタン数
 
 type GetVideo = () => HTMLVideoElement | null
 
@@ -353,27 +351,73 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); window.removeEventListener('orientationchange', onResize) }
     }, [])
     
-    // カスタムボタンのレイアウト決定（useLayoutEffectで呼び出し）
+    const measureRowWidthViaGhost = (container: HTMLElement, gap = 4): number => {
+      const root = container.getRootNode() as Document | ShadowRoot
+      const ghost = document.createElement('div')
+      ghost.style.cssText = [
+        'position:absolute','visibility:hidden','left:-99999px','top:0',
+        'display:flex','flex-wrap:nowrap',`gap:${gap}px`
+      ].join(';')
+      
+      // Shadow DOMの場合はshadowRootに、通常のDOMの場合はdocumentに追加
+      if (root instanceof ShadowRoot) {
+        root.appendChild(ghost)
+      } else {
+        document.body.appendChild(ghost)
+      }
+
+      const buttons = Array.from(container.querySelectorAll<HTMLElement>('.custom-button'))
+      buttons.forEach(btn => {
+        const clone = btn.cloneNode(true) as HTMLElement
+        clone.style.flex = '0 0 auto'
+        clone.style.width = 'auto'
+        clone.style.maxWidth = 'none'
+        const label = clone.querySelector('.label') as HTMLElement | null
+        if (label) label.style.whiteSpace = 'nowrap'
+        ghost.appendChild(clone)
+      })
+
+      const width = Math.ceil(ghost.getBoundingClientRect().width)
+      ghost.remove()
+      return width
+    }
+
+    // カスタムボタンのレイアウト決定（Ghost DOM計測方式）
     const determineButtonLayout = () => {
+      console.log('determineButtonLayout called!')
       const customButtonsContainer = cardRef.current?.querySelector('.custom-buttons')
       if (!customButtonsContainer) {
+        console.log('No custom buttons container found')
         setIsCompactLayout(false)
         return
       }
       
-      // コンテナ幅をチェック（ボタン個別採寸は不要）
-      const containerWidth = (customButtonsContainer as HTMLElement).getBoundingClientRect().width
+      const container = customButtonsContainer as HTMLElement
+      const buttons = container.querySelectorAll('.custom-button')
       
-      // デバッグログ
-      console.log('Layout calculation:', {
+      // 6個未満の場合は常に1行表示
+      if (buttons.length < 6) {
+        setIsCompactLayout(false)
+        return
+      }
+      
+      // Ghost DOM方式で自然幅を測定
+      const neededRowWidth = measureRowWidthViaGhost(container, 4)
+      const containerWidth = Math.floor(container.getBoundingClientRect().width)
+
+      // 判定（誤差吸収用のε）
+      const ε = 0.5
+      const needsCompact = neededRowWidth > containerWidth + ε
+
+      console.log('Layout calculation (ghost DOM method):', {
+        neededRowWidth,
         containerWidth,
-        threshold: LAYOUT_THRESHOLD,
-        cardWidth: cardRef.current?.getBoundingClientRect().width,
-        needsCompact: containerWidth < LAYOUT_THRESHOLD
+        buttonCount: buttons.length,
+        needsCompact,
+        epsilon: ε,
+        buttonLabels: Array.from(buttons).map(btn => btn.textContent)
       })
       
-      // 閾値と比較してレイアウト決定
-      const needsCompact = containerWidth < LAYOUT_THRESHOLD
       setIsCompactLayout(needsCompact)
     }
     
@@ -390,11 +434,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         return
       }
       
-      // DOM要素の準備を確実に待つ
-      requestAnimationFrame(() => {
-        determineButtonLayout()
-      })
-    }, [showCustomButtons])
+      // ChatGPT推奨：rAFは不要、useLayoutEffect内で直接実行
+      determineButtonLayout()
+    }, [showCustomButtons, customButtons])
 
     // リサイズやボタン変更時のレイアウト再計算
     useEffect(() => {
@@ -437,10 +479,29 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       const button = customButtons[displayIndex]
       if (!button) return
       
-      setEditingButton(displayIndex)
-      setEditingValues({
-        label: button.label,
-        seconds: button.seconds.toString()
+      // 実際のボタン配列でのインデックスも一緒に保存
+      loadCustomButtonsAsync().then(config => {
+        // 表示中のボタンに対応する全体配列でのインデックスを見つける
+        let actualIndex = -1
+        let enabledCount = 0
+        
+        for (let i = 0; i < config.buttons.length; i++) {
+          if (config.buttons[i].enabled && config.buttons[i].label.trim() !== '') {
+            if (enabledCount === displayIndex) {
+              actualIndex = i
+              break
+            }
+            enabledCount++
+          }
+        }
+        
+        if (actualIndex !== -1) {
+          setEditingButton(actualIndex) // 実際のインデックスを使用
+          setEditingValues({
+            label: button.label,
+            seconds: button.seconds.toString()
+          })
+        }
       })
     }
     
@@ -489,30 +550,29 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         return
       }
       
-      // 全体設定を読み込んでマッチするボタンを更新
-      const config = loadCustomButtons()
-      const newButtons = [...config.buttons]
-      
-      // 元のボタンを全体配列で見つけて更新
-      const fullArrayIndex = newButtons.findIndex(btn => 
-        btn.label === buttonToEdit.label && 
-        btn.seconds === buttonToEdit.seconds && 
-        btn.enabled
-      )
-      
-      if (fullArrayIndex !== -1) {
-        newButtons[fullArrayIndex] = {
-          label: editingValues.label,
-          seconds: secondsValue,
-          enabled: editingValues.label.trim() !== ''
-        }
+      // 最新の設定を非同期で取得してボタンを更新
+      loadCustomButtonsAsync().then(config => {
+        const newButtons = [...config.buttons]
         
-        saveCustomButtons({ buttons: newButtons })
-        setCustomButtons(getEnabledButtons({ buttons: newButtons }))
-        setEditingButton(null)
-        setEditingValues({ label: '', seconds: '' })
-        showToast('Button updated!', 'info')
-      }
+        // editingButtonは既に実際のインデックスなので直接使用
+        if (editingButton >= 0 && editingButton < newButtons.length) {
+          newButtons[editingButton] = {
+            label: editingValues.label,
+            seconds: secondsValue,
+            enabled: editingValues.label.trim() !== ''
+          }
+          
+          saveCustomButtons({ buttons: newButtons })
+          setCustomButtons(getEnabledButtons({ buttons: newButtons }))
+          setEditingButton(null)
+          setEditingValues({ label: '', seconds: '' })
+          showToast('Button updated!', 'info')
+        } else {
+          showToast('Button not found!', 'warn')
+        }
+      }).catch(() => {
+        showToast('Failed to update button', 'warn')
+      })
     }
 
     const cancelEditButton = () => {
@@ -523,16 +583,20 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const addNewButton = () => {
       if (!isEditMode) return // 編集モードでない場合は何もしない
       
-      const config = loadCustomButtons()
-      const firstEmptyIndex = config.buttons.findIndex(btn => !btn.enabled || btn.label.trim() === '')
-      
-      if (firstEmptyIndex === -1) {
-        showToast('Maximum 6 buttons allowed', 'warn')
-        return
-      }
-      
-      setEditingButton(firstEmptyIndex)
-      setEditingValues({ label: '', seconds: '60' })
+      loadCustomButtonsAsync().then(config => {
+        const firstEmptyIndex = config.buttons.findIndex(btn => !btn.enabled || btn.label.trim() === '')
+        
+        if (firstEmptyIndex === -1) {
+          showToast('Maximum 6 buttons allowed', 'warn')
+          return
+        }
+        
+        // 新規ボタンの場合は特別な処理が必要
+        setEditingButton(customButtons.length) // 表示中のボタンの後に追加
+        setEditingValues({ label: '', seconds: '60' })
+      }).catch(() => {
+        showToast('Failed to add new button', 'warn')
+      })
     }
 
     // 外側クリックで閉じる
@@ -668,20 +732,53 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           #yt-card button, #yt-card a, #yt-dd-menu, #yt-card [contenteditable="true"] { cursor: auto; }
           #yt-card::after{ content:""; position:absolute; left: var(--arrow-x, 50%); transform: translateX(-50%) rotate(45deg); width:10px; height:10px; background:#111; border:1px solid #444; border-left:none; border-top:none; top: calc(100% * -1 - 6px); opacity: 0; }
           #yt-card.flip-y::after{ top:auto; bottom:-6px; transform: translateX(-50%) rotate(225deg); }
-          .custom-buttons { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 4px; 
+          .custom-buttons {
+            display: grid;
+            gap: 4px;
             margin-top: 8px;
             width: 100%;
             border-radius: 6px;
             transition: all 0.15s ease;
+            /* 明示して事故を防ぐ */
+            grid-auto-flow: row;
           }
+
+          /* 計測専用モード。画面には出さない */
+          .custom-buttons[data-measure="1"] {
+            position: absolute !important;
+            visibility: hidden !important;
+            left: -99999px !important; 
+            top: 0 !important;
+            display: inline-flex !important;   /* Gridを外す */
+            flex-wrap: nowrap !important;      /* 1行で並べる */
+            gap: 4px !important;
+            grid-template-columns: none !important; /* Grid設定を完全に無効化 */
+            grid-template-rows: none !important;
+          }
+          .custom-buttons[data-measure="1"] .custom-button {
+            flex: 0 0 auto !important;         /* 伸び縮み禁止 */
+            width: auto !important;            /* 自然幅で測る（重要） */
+            max-width: none !important;
+            min-width: auto !important;
+          }
+
+          /* 6×1（列=ボタン数<=6） */
+          .custom-buttons.row,
+          .custom-buttons[data-layout="row"] {
+            grid-template-columns: repeat(var(--cols, 6), 1fr);
+            grid-auto-rows: auto;
+          }
+
+          /* 3×2 固定 */
+          .custom-buttons.compact,
+          .custom-buttons[data-layout="grid"] {
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: auto;
+          }
+
           .custom-button { 
             position: relative !important; 
-            flex: 1 1 auto;
             min-width: 35px;
-            max-width: 120px;
             padding: 4px 6px; 
             font-size: 11px; 
             background: #222; 
@@ -697,11 +794,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
-          }
-          /* コンパクトレイアウト - 3×2 */
-          .custom-buttons.compact .custom-button {
-            flex: 1 1 calc(33.33% - 3px);
-            max-width: calc(33.33% - 3px);
+            /* Grid/Flex両対応の保険 */
+            min-width: 0;
           }
           .edit-mode .custom-button { 
             background: rgba(59, 130, 246, 0.15);
@@ -905,11 +999,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         {/* カスタムシークボタン - 3段目に配置 */}
         {showCustomButtons && (
           <div 
-            class={`custom-buttons ${isCompactLayout === true ? 'compact' : ''}`} 
+            class={`custom-buttons ${isCompactLayout === true ? 'compact' : 'row'}`} 
+            data-layout={isCompactLayout === true ? 'grid' : 'row'}
             style={{ 
               marginTop: '8px',
-              visibility: isCompactLayout === null ? 'hidden' : 'visible'
-            }}
+              visibility: isCompactLayout === null ? 'hidden' : 'visible',
+              '--cols': Math.min(customButtons.length, 6).toString()
+            } as any}
           >
           {customButtons.map((button, displayIndex) => {
             return (
