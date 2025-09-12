@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mock YouTube Player</title>
+    <style>
+      body { margin: 0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:#0f0f0f; color:#ddd; }
+      header { padding: 12px; background:#111; border-bottom:1px solid #222; position:sticky; top:0; }
+      main { padding: 12px; }
+      .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .panel { margin-top: 8px; padding: 8px; background:#121212; border:1px solid #222; border-radius:8px; }
+      button { padding:6px 10px; border:1px solid #444; background:#1a1a1a; color:#fff; border-radius:6px; cursor:pointer }
+      input { padding:6px 8px; border:1px solid #444; background:#111; color:#fff; border-radius:6px }
+      .video-wrap { display:grid; place-items:center; height:65vh; }
+      video { width: 80vw; max-width: 1200px; background:#000; }
+      small { color:#aaa }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong>Mock YouTube</strong>
+        <small>for TEST_MODE E2E</small>
+      </div>
+    </header>
+    <main>
+      <div class="video-wrap">
+        <video id="v" controls preload="metadata"></video>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <label>Seekable start <input id="start" type="number" step="1" value="0" /></label>
+          <label>Seekable end <input id="end" type="number" step="1" value="3600" /></label>
+          <button id="apply">Apply Range</button>
+          <button id="jumpStart">Jump Start</button>
+          <button id="jumpEnd">Jump End</button>
+          <button id="move10">+10m</button>
+          <button id="move-10">-10m</button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <button id="simAdOn">Simulate Ad ON</button>
+          <button id="simAdOff">Simulate Ad OFF</button>
+        </div>
+      </div>
+    </main>
+    <script src="/src/mock/index.js" type="module"></script>
+  </body>
+  </html>
+

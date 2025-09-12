@@ -8,7 +8,12 @@ export default defineConfig({
   plugins: [
     preact(),
     webExtension({
-      manifest: () => ({
+      manifest: () => {
+        const testMode = process.env.TEST_MODE === 'true';
+        const matches = testMode
+          ? ['http://localhost:5173/src/mock/*']
+          : ['https://www.youtube.com/*', 'https://www.youtube-nocookie.com/*'];
+        return ({
         manifest_version: 3,
         name: 'YouTube Long Seek & Timestamp Jump',
         version: '1.0.0',
@@ -24,10 +29,7 @@ export default defineConfig({
         ],
         
         // YouTubeドメインへのアクセス権限
-        host_permissions: [
-          'https://www.youtube.com/*',
-          'https://www.youtube-nocookie.com/*'
-        ],
+        host_permissions: matches,
         
         // バックグラウンドサービスワーカー
         background: {
@@ -41,10 +43,7 @@ export default defineConfig({
         // コンテンツスクリプト
         content_scripts: [
           {
-            matches: [
-              'https://www.youtube.com/*',
-              'https://www.youtube-nocookie.com/*'
-            ],
+            matches,
             js: ['src/content/index.ts'],
             css: ['src/styles/index.css'],
             all_frames: true,  // iframe内でも動作
@@ -100,8 +99,9 @@ export default defineConfig({
           '48': 'icons/icon-48.png',
           '128': 'icons/icon-128.png'
         }
-      }),
-      additionalInputs: ['src/content/index.ts', 'src/background/index.ts', 'src/options/index.tsx'],
+      });
+      },
+      additionalInputs: ['src/content/index.ts', 'src/background/index.ts', 'src/options/index.tsx', 'src/mock/index.html', 'src/mock/index.js'],
     })
   ],
   
