@@ -16,7 +16,10 @@ export const Keys = {
   Lang: 'lang',
   CalAuto: 'cfg:cal:auto',
   DebugCal: 'debug:cal',
+  DebugHybridCalib: 'debug:hybridCalib',
+  DebugJump: 'debug:jump',
   ShortcutsHelpDismissed: 'shortcutsHelpDismissed',
+  CfgHybrid: 'cfg:hybrid',
 } as const;
 
 /** 文字列値を取得（存在しなければ null） */

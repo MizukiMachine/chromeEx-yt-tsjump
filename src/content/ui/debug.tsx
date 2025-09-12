@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { getAll, subscribe, clear, type LogEvent } from '../log/buffer'
 import { getString, Keys } from '../store/local'
 import { getSeekableEnd, getSeekableStart, GUARD_SEC } from '../core/seek'
-import { getCalibration } from '../core/calibration'
+import { getHybridState, getHybridConfig } from '../core/hybridCalibration'
 
 type GetVideo = () => HTMLVideoElement | null
 
@@ -53,14 +53,14 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
       const endGuard = Math.max(start, end - GUARD_SEC)
       const cur = v ? safe(() => v!.currentTime, 0) : 0
       const tz = getString(Keys.TzCurrent)
-      const cal = safe(getCalibration, null)
+      const hybrid = safe(() => ({ state: getHybridState(), config: getHybridConfig() }), null as any)
       const last = events[events.length - 1] ?? null
       const snap = {
         ts: new Date().toISOString(),
         tz,
         seekable: { start, end, endGuard },
         currentTime: cur,
-        calibration: cal,
+        hybrid,
         lastEvent: last,
         recent: events.slice(-10),
       }
@@ -104,8 +104,8 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
             <Section title="Now">
               {renderNow(getVideo)}
             </Section>
-            <Section title="Calibration">
-              {renderCal()}
+            <Section title="Hybrid Calib">
+              {renderHybrid(getVideo)}
             </Section>
           </div>
           <div class="col">
@@ -153,14 +153,20 @@ function renderNow(getVideo: GetVideo) {
   )
 }
 
-function renderCal() {
-  const cal = safe(getCalibration, null) as any
-  if (!cal) return <div>—</div>
+function renderHybrid(getVideo: GetVideo) {
+  const v = getVideo()
+  const st = safe(getHybridState, { C: null, D: 0, locked: false, consec: 0, hasVideo: false, isAtEdge: false })
+  const cfg = safe(getHybridConfig, null as any)
+  const start = v ? getSeekableStart(v) : 0
+  const end = v ? getSeekableEnd(v) : 0
+  const endGuard = Math.max(start, end - GUARD_SEC)
+  // 誤差 e = (seekableEnd + D + C) - (now - L)
+  const e = (st.C != null && Number.isFinite(end)) ? ((end + st.D + (st.C as number)) - ((Date.now()/1000) - (cfg?.latencySec ?? 20))) : null
   return (
     <div>
-      <div>status: {cal.status}</div>
-      <div>C: {cal.C != null ? cal.C.toFixed(2) : '—'} MAD: {cal.mad != null ? cal.mad.toFixed(2) : '—'} samples: {cal.samples}</div>
-      <div>quality: {cal.quality}</div>
+      <div>C: {st.C != null ? (st.C as number).toFixed(2) : '—'} D: {st.D.toFixed(2)} locked: {String(st.locked)} consec: {st.consec}</div>
+      <div>edge: {String(st.isAtEdge)} DVR: start={start.toFixed(2)} end={end.toFixed(2)} guard={endGuard.toFixed(2)}</div>
+      <div>e: {e != null ? e.toFixed(2) : '—'} L={cfg?.latencySec ?? 20} HYS={cfg?.pll?.hysSec ?? '—'} N={cfg?.pll?.consecN ?? '—'} α={cfg?.pll?.alpha ?? '—'} rate={cfg?.pll?.maxRatePerSec ?? '—'}</div>
     </div>
   )
 }
@@ -176,4 +182,3 @@ function safeStringify(v: unknown): string {
 function safe<T>(fn: () => T, fallback: T): T {
   try { return fn() } catch { return fallback }
 }
-

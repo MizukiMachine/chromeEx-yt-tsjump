@@ -3,7 +3,7 @@ import { createPortal } from 'preact/compat'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
-import { jumpToLocalTime } from '../core/jump'
+import { jumpToLocalTimeHybrid } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
 import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds, clearLegacyStorage } from '../store/customButtons'
@@ -682,7 +682,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       if (!v) {
         return
       }
-      const r = jumpToLocalTime(v, input.trim(), zone)
+      // ハイブリッドシステムのみを使用
+      const r = jumpToLocalTimeHybrid(v, input.trim(), zone)
+      if (!r.ok) {
+        console.warn('[Card] Hybrid jump failed:', r.reason)
+        showToast(r.reason || 'Hybrid system not ready. Try moving to live edge.', 'warn')
+      }
       if (r.ok) {
         // 成功したら入力欄をクリア
         setInput('')

@@ -112,12 +112,8 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
     }
   }
   try {
-    const anyVideo: any = video as any;
-    if (typeof anyVideo.fastSeek === 'function') {
-      anyVideo.fastSeek(cr.target);
-    } else {
-      video.currentTime = cr.target;
-    }
+    // 常に直接指定（fastSeekは帯域によって丸めが強く出るため不使用）
+    video.currentTime = cr.target;
     // 端付近で停止しがちなので軽くplayを促す
     if (cr.reason === 'end') {
       void video.play().catch(() => {});

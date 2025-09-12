@@ -5,7 +5,8 @@
  */
 import { observeVideo, type VideoObserverHandle } from './dom/video';
 import { handleSeekCommand } from './handlers/commands';
-import { startCalibration, stopCalibration } from './core/calibration';
+import { stopCalibration } from './core/calibration';
+import { initHybrid, startCalibration as startHybridCalibration, disposeHybrid } from './core/hybridCalibration';
 import { mountCard, type CardAPI } from './ui/card';
 import { onCommandMessage, sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
@@ -187,17 +188,18 @@ function setupVideoObserver() {
       // ステータス送信
       sendStatusToBackground('video-found', { reason }).catch(() => {});
       try { logStatus('video-found', { reason }); } catch {}
-      // 初期キャリブレーションはデフォルト無効
-      // 計測が必要なときだけフラグで明示的に有効化（store/local 経由）
-      // 例: setBool(Keys.CalAuto, true) / setBool(Keys.DebugCal, true)
-      //    （開発中に手早く試すなら DevTools から）
-      //      localStorage.setItem('cfg:cal:auto','1');
-      //      localStorage.setItem('debug:cal','1');
+      // ハイブリッドキャリブレーションシステムの初期化と開始
       try {
-        const auto = getBool(Keys.CalAuto);
-        const debug = getBool(Keys.DebugCal);
-        if (auto || debug) startCalibration(video);
-      } catch { /* no-op */ }
+        // ハイブリッドシステム初期化（デフォルト設定使用）
+        initHybrid(video);
+        
+        // Edge-Snap監視開始
+        startHybridCalibration();
+        
+        console.log(`[Content:${frameTag()}] Hybrid calibration system started`);
+      } catch (error) {
+        console.error(`[Content:${frameTag()}] Failed to start hybrid calibration:`, error);
+      }
     } else {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
@@ -323,6 +325,7 @@ function checkURLChange() {
 window.addEventListener('unload', () => {
   videoObserver?.disconnect();
   stopCalibration();
+  disposeHybrid(); // ハイブリッドシステムのクリーンアップ
   disposeMessageListener?.();
 });
 
