@@ -1,6 +1,6 @@
 import { render, h } from 'preact'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { PRESET_ZONES, DEFAULT_ZONE, getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../core/timezone'
+import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
 import { jumpToLocalTimeHybrid } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
@@ -23,6 +23,8 @@ type GetVideo = () => HTMLVideoElement | null
 
 // Extracted lightweight portal component
 import { EditPopupPortal } from './components/EditPopupPortal'
+import { TZDropdown } from './components/TZDropdown'
+import { CustomButtons as CustomButtonsList } from './components/CustomButtons'
 
 export type CardAPI = {
   open: () => void
@@ -882,58 +884,29 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           </div>
           {/* TZ selector (small line, text smaller than main) */}
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center', width: '100%' }}>
-            <div class="yt-dd" style={{ flex:'1 1 auto', minWidth:0 }}>
-              <button ref={zonesBtnRef} type="button" class="yt-dd-btn" style={{ fontSize:'11px' }} onClick={() => setZonesOpen(v=>!v)}>{labelTZ(zone)}</button>
-              {zonesOpen && (
-                <div class="yt-dd-menu" onMouseDown={(e: any) => e.stopPropagation()}>
-                  {mru.length > 0 && <div class="yt-dd-group">{lang === 'ja' ? '最近使用したもの' : 'Recent'}</div>}
-                  {mru.map((z) => (
-                    <div class="yt-dd-item" onClick={() => { setZone(z); setZonesOpen(false) }}>
-                      <div class="yt-dd-item-row"><span>{labelTZName(z)}</span><span class="badge">{labelTZOff(z)}</span></div>
-                    </div>
-                  ))}
-                  <div class="yt-dd-group">{lang === 'ja' ? 'タイムゾーン' : 'Zones'}</div>
-                  {others.map((z) => (
-                    <div class="yt-dd-item" onClick={() => { setZone(z); setZonesOpen(false) }}>
-                      <div class="yt-dd-item-row"><span>{labelTZName(z)}</span><span class="badge">{labelTZOff(z)}</span></div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <TZDropdown 
+              zone={zone}
+              mru={mru}
+              others={others}
+              lang={lang as any}
+              open={zonesOpen}
+              onToggle={() => setZonesOpen(v => !v)}
+              onSelect={(z) => { setZone(z); setZonesOpen(false) }}
+              buttonRef={(el) => { zonesBtnRef.current = el }}
+            />
           </div>
         </form>
         {/* カスタムシークボタン - 3段目に配置 */}
         {showCustomButtons && (
-          <div 
-            class={`custom-buttons ${isCompactLayout === true ? 'compact' : 'row'}`} 
-            data-layout={isCompactLayout === true ? 'grid' : 'row'}
-            style={{ 
-              marginTop: '8px',
-              visibility: isCompactLayout === null ? 'hidden' : 'visible',
-              '--cols': Math.min(customButtons.length, 6).toString()
-            } as any}
-          >
-          {customButtons.map((button, displayIndex) => {
-            return (
-              <div 
-                key={displayIndex} 
-                class="custom-button" 
-                style={{ position: 'relative' }}
-                onClick={() => handleCustomButtonClick(button, displayIndex)}
-                onMouseDown={(e: any) => e.stopPropagation()}
-                title={isEditMode ? t('tooltip.click_edit') : formatSeconds(button.seconds)}
-              >
-                {/* ボタン本体 - 常に表示 */}
-                <div
-                  ref={el => { buttonRefs.current[displayIndex] = el }}
-                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}
-                >
-                  {button.label}
-                </div>
-              </div>
-            )
-          })}
+          <>
+          <CustomButtonsList
+            buttons={customButtons}
+            isCompactLayout={isCompactLayout}
+            isEditMode={isEditMode}
+            onClick={(displayIndex) => handleCustomButtonClick(customButtons[displayIndex], displayIndex)}
+            setButtonRef={(i, el) => { buttonRefs.current[i] = el }}
+            titleFor={(btn) => isEditMode ? t('tooltip.click_edit') : formatSeconds(btn.seconds)}
+          />
           {/* 新しいボタンを追加 - 編集モードのみ表示 */}
           {isEditMode && customButtons.length < 6 && (
             <div class="custom-button" style={{ opacity: 0.6, border: '1px dashed #666' }}>
@@ -991,7 +964,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               )}
             </div>
           )}
-          </div>
+          </>
         )}
         {/* footer helper text removed; use ? button for help */}
         
