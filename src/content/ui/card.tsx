@@ -9,6 +9,8 @@ import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, saveCusto
 import { seekBySeconds } from '../core/seek'
 import { isAdActive } from '../core/adsense'
 import { showToast } from './toast'
+import { useCardPosition } from './hooks/useCardPosition'
+import { useDragHandling } from './hooks/useDragHandling'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -58,9 +60,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const inputRef = useRef<HTMLInputElement>(null)
     const [typing, setTyping] = useState(false)
     // ピン留め機能は一旦廃止（オン/オフのみ）
-    const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
-    const posRef = useRef<{ x:number; y:number } | null>(pos)
-    useEffect(() => { posRef.current = pos }, [pos])
+    const { pos, setPos, posRef, savePos, calculateInitialPosition } = useCardPosition(getVideo, open)
     const [showHelp, setShowHelp] = useState(false)
     const [lang, setLang] = useState(getLang())
     const [zonesOpen, setZonesOpen] = useState(false)
@@ -132,25 +132,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           return 
         }
         try {
-          const btn = document.querySelector('#ytp-jump') as HTMLElement | null
-          const r = btn?.getBoundingClientRect()
-          const v = getVideo()
-          const videoRect = (v?.getBoundingClientRect?.() as DOMRect | undefined)
-            ?? (document.querySelector('.html5-video-player') as HTMLElement | null)?.getBoundingClientRect()
-          if (r) {
-            const CARD_W = 300, CARD_H = 160
-            const SHIFT_INNER = 24 // 右端から内側へ
-            let x = r.right - SHIFT_INNER - CARD_W
-            let y = r.top - CARD_H - 12
-            if (videoRect) {
-              const p = clampRectToBounds({ x, y }, CARD_W, CARD_H, videoRect)
-              x = p.x; y = p.y
-            } else {
-              const p = clampRectToViewport({ x, y }, CARD_W, CARD_H, window.innerWidth, window.innerHeight)
-              x = p.x; y = p.y
-            }
-            setPos({ x, y })
-          }
+          const p = calculateInitialPosition()
+          if (p) setPos(p)
         } catch {}
         setOpen(true)
         setString(KEY_OPEN, '1')
@@ -221,30 +204,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
     // 無操作フェードは廃止（シンプル運用）
 
-    // 画面リサイズ/全画面切替/向き変更で位置をクランプ（動画領域優先）
+    // 位置は useCardPosition に集約
     useEffect(() => {
-      const onResize = () => {
-        setPos((p) => {
-          if (!p) return p
-          const rect = cardRef.current?.getBoundingClientRect()
-          const w = rect?.width ?? 300
-          const h = rect?.height ?? 160
-          // 常にビューポート内にクランプ（ブラウザリサイズでアクセス不可を防ぐ）
-          const clamped = clampRectToViewport(p, w, h, window.innerWidth, window.innerHeight)
-          if (clamped.x !== p.x || clamped.y !== p.y) { savePos(clamped) }
-          return clamped
-        })
-        
-        // ボタンレイアウトの再チェック（表示中の場合のみ）
-        if (showCustomButtons && isCompactLayout !== null) {
-          determineButtonLayout()
-        }
+      if (showCustomButtons && isCompactLayout !== null) {
+        determineButtonLayout()
       }
-      window.addEventListener('resize', onResize)
-      document.addEventListener('fullscreenchange', onResize)
-      window.addEventListener('orientationchange', onResize)
-      return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); window.removeEventListener('orientationchange', onResize) }
-    }, [])
+    }, [showCustomButtons, isCompactLayout])
     
     const measureRowWidthViaGhost = (container: HTMLElement, gap = 4): number => {
       const root = container.getRootNode() as Document | ShadowRoot
@@ -520,55 +485,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
     // 旧初期位置ロジックは撤去（openSmartが一元的に決定）
 
-    function savePos(_p: { x:number; y:number }) { /* session-only: do not persist across reload */ }
+    // 保存は useCardPosition に移譲（セッション内のみ）
 
-    // ドラッグ（カード上のどこでも。入力やボタンなどのインタラクティブ要素は除外）
-    useEffect(() => {
-      const el = cardRef.current
-      if (!el) return
-      const draggingRef = { current: false }
-      let sx = 0, sy = 0
-      let startX = 0, startY = 0
-      const onDown = (e: MouseEvent) => {
-        const target = e.target as HTMLElement
-        // 入力系やボタン、リンク、TZメニュー、ヘルプテキスト内ではドラッグ開始しない
-        const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu, .help-text'
-        if (target && (target.closest(interactiveSel))) return
-        draggingRef.current = true
-        sx = e.clientX; sy = e.clientY
-        const p = posRef.current
-        startX = p?.x ?? 0; startY = p?.y ?? 0
-        
-        // チャット欄の干渉を防ぐため、ドラッグ中はチャット要素のポインターイベントを無効化
-        const chatContainer = document.querySelector('#chat-container, #chatframe')
-        if (chatContainer) {
-          (chatContainer as HTMLElement).style.pointerEvents = 'none'
-        }
-        
-        e.preventDefault()
-      }
-      const onMove = (e: MouseEvent) => {
-        if (!draggingRef.current) return
-        const nx = startX + (e.clientX - sx)
-        const ny = startY + (e.clientY - sy)
-        const vw = window.innerWidth, vh = window.innerHeight
-        const clamped = { x: Math.min(vw - 40, Math.max(0, nx)), y: Math.min(vh - 40, Math.max(0, ny)) }
-        setPos(clamped); savePos(clamped)
-      }
-      const onUp = () => { 
-        draggingRef.current = false 
-        
-        // チャット要素のポインターイベントを復元
-        const chatContainer = document.querySelector('#chat-container, #chatframe')
-        if (chatContainer) {
-          (chatContainer as HTMLElement).style.pointerEvents = ''
-        }
-      }
-      el.addEventListener('mousedown', onDown)
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-      return () => { el.removeEventListener('mousedown', onDown); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-    }, [])
+    // ドラッグは共通フックで処理
+    useDragHandling(cardRef, posRef, setPos, savePos)
 
     // 提交
     async function onSubmit(e?: Event) {
