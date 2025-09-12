@@ -256,6 +256,7 @@ export function jumpToLocalTimeHybrid(
   if (!Number.isFinite(Csnap as any) && Number.isFinite(fallbackCsnap as any)) {
     Csnap = fallbackCsnap as number;
   }
+  // 通常の候補選択（折り畳みや日付固定は行わない）
   let targetEpoch = resolveEpochFromCandidates(epochCandidates, Csnap ?? undefined);
   if (targetEpoch === null) {
     // まだCが無い場合などは、まずEdge-Snapを試みる
@@ -315,6 +316,7 @@ export function jumpToLocalTimeHybrid(
     selectedCandidate = 'tomorrow';
     selectedTz = tzTmrw;
   }
+  // 日付固定は行わない（元のロジックに戻す）
 
   if (DEBUG) {
     // eslint-disable-next-line no-console
