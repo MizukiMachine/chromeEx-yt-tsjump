@@ -46,14 +46,16 @@ src/
       seek.ts                 # getSeekable*, clamp, seek, ±10/±60
       jump.ts                 # 入力→t_target→端ジャンプ
       adsense.ts              # MutationObserver で広告検知
-    ui/
-      card.tsx                # 入力カード（TZ ドロップダウン MRU、カスタムボタン）
-      toast.ts                # フレンドリートースト
-      debug.tsx               # デバッグパネル（Alt+Shift+L）
-      hooks/                  # UI関連カスタムフック
-        useCardPosition.ts    # カード位置管理
-        useDragHandling.ts    # ドラッグ処理
-        useTimezoneData.ts    # TZ・MRU管理
+  ui/
+    card.tsx                # 入力カード（TZ ドロップダウン MRU、カスタムボタン、インライン編集）
+    toast.ts                # フレンドリートースト
+    debug.tsx               # デバッグパネル（Alt+Shift+L）
+    hooks/                  # UI関連カスタムフック
+      useCardPosition.ts    # カード位置管理（セッション内のみ）
+      useDragHandling.ts    # ドラッグ処理
+      useTimezoneData.ts    # TZ・MRU管理
+    components/
+      EditPopupPortal.tsx   # 編集ポップアップ（ポータル）
     utils/                    # ユーティリティ
       i18n.ts                 # 多言語化（カテゴリ分け辞書、型安全）
       layout.ts               # レイアウト・位置計算
@@ -96,7 +98,8 @@ src/
 - `LogEvent { ts: number, kind: string, payload: Record<string,unknown> }`
 
 UI 状態
-- `card:pos`, `card:pinned`, `tz:current`, `tz:mru` を localStorage に保存
+- `tz:current`, `tz:mru` は保存
+- カードの位置とピン状態はセッション内のみ保持（リロードでリセット）
 - デバッグパネル開閉はメモリ保持（必要なら保存可）
 
 ## ■ アルゴリズム詳細
@@ -209,13 +212,9 @@ E2E（Playwright）
 - **既存ショートカット**: `seekBySeconds()` を呼び出すようリファクタリング
 - **カスタムボタン**: 同じ `seekBySeconds()` を使用
 
-### オプションページ拡張
-- **options.tsx 拡張**: カスタムボタン設定セクションを追加
-- **UI コンポーネント**: 
-  - ボタン 1-6 の設定フォーム（ラベル + 秒数入力）
-  - リアルタイムプレビュー表示
-  - リセット/デフォルト復元ボタン
-- **エラーハンドリング**: バリデーション失敗時の多言語エラー表示
+### オプションページの役割
+- 言語・デバッグ・タイムゾーン初期リストなど最小限の設定に限定
+- カスタムボタンの編集はカード内インライン編集に統一
 
 ### モジュール構成の追加
 ```
