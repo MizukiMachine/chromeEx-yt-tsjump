@@ -14,13 +14,13 @@ export function setupURLObserver(onChange: () => void): void {
   const originalPushState = history.pushState;
   const originalReplaceState = history.replaceState;
 
-  history.pushState = function (...args) {
+  history.pushState = function (this: History, ...args: any[]) {
     const result = originalPushState.apply(this, args as any);
     checkURLChange();
     return result as any;
   } as any;
 
-  history.replaceState = function (...args) {
+  history.replaceState = function (this: History, ...args: any[]) {
     const result = originalReplaceState.apply(this, args as any);
     checkURLChange();
     return result as any;
@@ -29,4 +29,3 @@ export function setupURLObserver(onChange: () => void): void {
   window.addEventListener('popstate', checkURLChange);
   setInterval(checkURLChange, 1000);
 }
-

@@ -1,4 +1,4 @@
-import { h } from 'preact'
+// Using automatic JSX runtime with preact; explicit h import not needed
 import { getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../../core/timezone'
 
 export function TZDropdown(props: {
@@ -81,4 +81,3 @@ export function TZDropdown(props: {
     </div>
   )
 }
-

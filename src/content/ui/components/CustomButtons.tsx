@@ -1,4 +1,4 @@
-import { h } from 'preact'
+// Using automatic JSX runtime with preact; explicit h import not needed
 
 export type CustomButton = { label: string; seconds: number }
 
@@ -42,4 +42,3 @@ export function CustomButtons(props: {
     </div>
   )
 }
-

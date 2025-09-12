@@ -10,7 +10,8 @@ import { mountCard, type CardAPI } from './ui/card';
 import { sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
-import { getBool, setBool, setString, Keys } from './store/local';
+// removed unused local storage helpers to satisfy noUnusedLocals
+// import { getBool, setBool, setString, Keys } from './store/local';
 import { t } from './utils/i18n';
 import { mountDebug, type DebugAPI } from './ui/debug';
 import { logStatus, logAd } from './events/emit';
@@ -43,8 +44,7 @@ let debugApi: DebugAPI | null = null;
 // let jumpBtnInserted = false;
 // let controlsObserver: MutationObserver | null = null;
 // moved to ui/jumpButton.ts
-// URL変更監視用
-let currentURL = location.href;
+// URL変更監視は services/urlWatcher.ts で行う（ここでのURL保持は不要）
 // Jumpボタンの整列は最小限のスタイルのみ（実測アラインは行わない）
 
 /**
