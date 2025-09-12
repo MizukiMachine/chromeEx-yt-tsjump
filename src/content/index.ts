@@ -267,10 +267,11 @@ if (document.readyState === 'loading') {
 // デバッグ用：キーボードイベントを直接監視（開発時のみ）
 if (process.env.NODE_ENV === 'development') {
   document.addEventListener('keydown', (e) => {
-    if (e.altKey && !e.ctrlKey && !e.metaKey) {
+    // Align with actual manifest shortcuts: Alt+Shift+S/D/F/G
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
       const key = e.key.toUpperCase();
-      if (['Q', 'A', 'W', 'S'].includes(key)) {
-        console.log(`[Content:${frameTag()}] DEBUG: Alt+${key} pressed directly`);
+      if (['S', 'D', 'F', 'G'].includes(key)) {
+        console.log(`[Content:${frameTag()}] DEBUG: Alt+Shift+${key} pressed directly`);
       }
     }
   });
