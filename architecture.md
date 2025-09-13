@@ -17,14 +17,16 @@
   - chrome.commands を購読、アクティブタブの content にメッセージを転送
 - content script
   - YouTube プレイヤー iframe に注入し、動画要素取得・制御、UI（カード/トースト/デバッグ）を Shadow DOM で提供
-  - 主要ロジック（校正、時刻正規化、TZ 変換、端ジャンプ、広告検知）を実装
+- 主要ロジック（校正、時刻正規化、TZ 変換、端ジャンプ、広告検知）を実装
+  - 注: 従来のサンプリング式キャリブレーションは過去実装。現行はハイブリッド（Edge‑Snap + Live‑PLL）
 - injected page script（必要時）
   - 直接 DOM に近い操作が必要な場合のみ使用（最小化）
 
 ## ■ データフロー
 
 1) ページ読み込み → content が Shadow DOM を作成し、`<video>` を検出
-2) （任意）校正開始（1 秒間隔で C をサンプリング）。通常は必要時/デバッグ時のみ起動
+2) （任意）校正（現行）: 右端付近で Edge‑Snap により一度だけ C を確定し、D=buffered−seekable を記録。以後は Live‑PLL で微調整
+   （従来の 1秒間隔サンプリング式は過去実装）
 3) ユーザー操作（ショートカット／カード） → background の commands → content のハンドラ
 4) 入力 → 正規化 → TZ 変換 → `E_target` 算出 → `t_target = E_target − C` → 範囲判定 → seek
 5) 広告検知中は抑止。イベントや計算結果はログリングに保存、デバッグパネルとコンソールへ出力
@@ -40,11 +42,12 @@ src/
     index.ts                  # 起点（UI ルート、video 検出、初回校正）
     bridge/runtime.ts         # postMessage/受信、型安全なチャネル
     core/
-      calibration.ts          # C の推定（中央値＋MAD）、再校正トリガ
+      calibration.ts          # 旧実装（過去）: 中央値＋MAD サンプリング。現行は hybridCalibration.ts を使用
       timeparse.ts            # 24h 正規化・自動補正
       timezone.ts             # Temporal で TZ 変換（DST: gap/ambiguous）
       seek.ts                 # getSeekable*, clamp, seek, ±10/±60
       jump.ts                 # 入力→t_target→端ジャンプ
+      hybridCalibration.ts    # 現行実装: Edge‑Snap + Live‑PLL + DVR窓（右端=now−L）
       adsense.ts              # MutationObserver で広告検知
   ui/
     card.tsx                # 入力カード（TZ ドロップダウン MRU、カスタムボタン、インライン編集）
@@ -89,7 +92,7 @@ src/
 ## ■ 型と状態
 
 主要型（例）
-- `CalibrationState { offsetC: number, mad: number, samples: number, lastUpdated: number }`
+- `CalibrationState { ... }`（旧実装の型。現行はハイブリッド内部状態を使用）
 - `NormalizedTime { hh: number, mm: number, ss: number, normalized: string, rolledOver: boolean }`
 - `TZSetting { current: string, mru: string[] }`
 - `JumpRequest { input: string, zone: string }`
@@ -123,10 +126,10 @@ UI 状態
 
 ジャンプ決定
 - `E_target` は選択TZの「今日/昨日/明日」の3候補から選ぶ
-  - 範囲 `[E_start, E_end]`（`E_start = C + start`, `E_end = C + (end − GUARD)`）に含まれる候補があれば `E_end` に近い方
+  - ハイブリッド（現在の実運用）では、候補選定用のDVR窓は「右端= now−L（配信遅延）」に固定。幅は `seekableEnd−seekableStart` を基本とし、Edge-Snap後は `D = bufferedEnd − seekableEnd` で幅補正（右端先行の影響を除去）。窓内は `now−L` に最も近い候補、窓外は窓中心に最も近い候補を選ぶ
   - 含まれない場合は区間への距離が最小の候補を選ぶ
 - `t_target = E_target − C`
-- 範囲 `[start, end − GUARD]` に含まれれば `seek(t_target)`。含まれない場合は端比較（`E`空間距離で近い端。同距離は live edge）
+- 旧ロジック（参考）: 範囲 `[start, end − GUARD]` に含まれれば `seek(t_target)`。含まれない場合は端比較（`E`空間距離で近い端。同距離は live edge）
 
 広告検知
 - `.ad-showing`, `.ytp-ad-player-overlay`, `#player-ads` を監視
@@ -144,8 +147,9 @@ UI 状態
 単体（Vitest）
 - `timeparse.ts`: 正規化と繰り上げの全境界ケース
 - `timezone.ts`: 各 TZ の DST 境界日（gap/ambiguous）
-- `calibration.ts`: median/MAD の動作、外れ値除去
+- `calibration.ts`: 旧実装（過去）— 現行コードでは対象外
 - `jump.ts`: 端比較（同距離は live edge）
+- `hybridCalibration.ts`: DVR窓の右端= now−L、幅= seekable幅（Edge-Snap後は D で補正）
 
 E2E（Playwright）
 - TEST_MODE のビルドで `mock/` を matches に差し替え、video と seekable を操作可能に
