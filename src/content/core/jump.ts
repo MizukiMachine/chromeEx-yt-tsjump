@@ -281,20 +281,26 @@ export function jumpToLocalTimeHybrid(
       const L = cfg?.latencySec ?? 20;
       const endEff = effectiveEndForJump(v);
       if (endEff > 0) {
+        // 暫定Csnap（buffered/seekable どちらでも endEff から算出）。
         const CsnapTemp = (Date.now() / 1000 - L) - endEff;
         // セッション内で固定（以降のジャンプの基準が動かないように）
         if (!Number.isFinite(fallbackCsnap as any)) { fallbackCsnap = CsnapTemp; }
+
+        // 右端は now−L に固定し、幅は seekable 幅を採用（Edge-Snap 前なので D 補正は行わない）
         const start = getSeekableStart(v);
         const end = getSeekableEnd(v);
         const endGuard = Math.max(start, end - GUARD_SEC);
-        const E_start = start + CsnapTemp;
-        const E_end = endGuard + CsnapTemp;
+        const widthSeekable = Math.max(0, endGuard - start);
+        const E_end = Date.now() / 1000 - L;
+        const E_start = E_end - widthSeekable;
+
         function distToInterval(E: number): number { if (E < E_start) return E_start - E; if (E > E_end) return E - E_end; return 0; }
         const within = epochCandidates.filter((E) => E >= E_start && E <= E_end);
-        const currentEpochEstimate = Date.now() / 1000 - L;
+        const currentEpochEstimate = E_end;
         const picked = within.length > 0
           ? within.reduce((p,c) => Math.abs(c - currentEpochEstimate) < Math.abs(p - currentEpochEstimate) ? c : p)
           : epochCandidates.reduce((prev, curr) => (distToInterval(curr) < distToInterval(prev) ? curr : prev));
+
         const tTarget = picked - (fallbackCsnap as number);
         const r = seek(v, tTarget);
         // 軽い通知で案内
@@ -328,7 +334,36 @@ export function jumpToLocalTimeHybrid(
   }
 
   // ハイブリッドシステムでジャンプ実行
-  const success = jumpToEpoch(targetEpoch, Csnap ?? undefined);
+  // まだCsnapが無い場合は、暫定Csnapを(now−L)と終端から推定して渡す（Edge-Snap前でもジャンプ可能に）
+  let CsnapForJump = Csnap;
+  if (!Number.isFinite(CsnapForJump as any)) {
+    // セッション内に暫定Csnapがあれば最優先で使用（毎回の再推定でブレないように）
+    if (Number.isFinite(fallbackCsnap as any)) {
+      CsnapForJump = fallbackCsnap as number;
+      if (DEBUG) {
+        // eslint-disable-next-line no-console
+        console.debug('[Jump:Hybrid] using session fallback Csnap', { CsnapForJump });
+      }
+    } else {
+      // まだ無ければ、その場で推定して固定化
+      try {
+        const v = _video;
+        const L = getHybridConfig()?.latencySec ?? 20;
+        const endEff = effectiveEndForJump(v);
+        if (endEff > 0) {
+          const CsnapTemp = (Date.now() / 1000 - L) - endEff;
+          CsnapForJump = CsnapTemp;
+          fallbackCsnap = CsnapTemp; // セッション固定
+          if (DEBUG) {
+            // eslint-disable-next-line no-console
+            console.debug('[Jump:Hybrid] provisional Csnap for jump (fixed as session fallback)', { CsnapTemp, L, endEff });
+          }
+        }
+      } catch {}
+    }
+  }
+
+  const success = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined);
   if (!success) {
     return { ok: false, decision: 'parse-error', reason: 'jump execution failed' };
   }

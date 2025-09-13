@@ -319,6 +319,37 @@ export function startCalibration(): void {
   // 再生イベントロック
   attachPlaybackLockEvents(state.video);
 
+  // 初期の暫定キャリブレーション（右端にいない/バッファ未整備でもCを仮置き）
+  try {
+    if (state.C === null && state.video) {
+      const v = state.video;
+      const L = state.config.latencySec;
+      const seekEnd = getSeekableEnd(v);
+      const bufEnd = getBufferedEnd(v);
+      const preferBufferedThreshold = 120; // seconds
+      let endEff = Number.NaN;
+      if (Number.isFinite(bufEnd) && bufEnd > 0) {
+        if (!Number.isFinite(seekEnd) || seekEnd <= 0 || (seekEnd - (bufEnd as number)) > preferBufferedThreshold) {
+          endEff = bufEnd as number;
+        }
+      }
+      if (!Number.isFinite(endEff)) {
+        endEff = Number.isFinite(seekEnd) && seekEnd > 0 ? seekEnd : (Number.isFinite(bufEnd) ? (bufEnd as number) : Number.NaN);
+      }
+      if (Number.isFinite(endEff)) {
+        const prevC = state.C;
+        state.C = (now() - L) - (endEff as number);
+        // D は両方ある場合のみ記録
+        if (Number.isFinite(bufEnd) && Number.isFinite(seekEnd)) {
+          state.D = (bufEnd as number) - (seekEnd as number);
+        } else {
+          state.D = 0;
+        }
+        debugLog('provisional-init-calib', { prevC, newC: state.C, D: state.D, seekEnd, bufEnd, endEff });
+      }
+    }
+  } catch {}
+
   // Edge-Snap監視開始
   const edgeMonitorId = window.setInterval(() => {
     if (state.C === null) {
@@ -478,31 +509,55 @@ export function manualEdgeSnap(): boolean {
  * DVR窓（seekable範囲をepoch変換）に入る候補を優先、窓外なら最も近いものを選択
  */
 export function resolveEpochFromCandidates(epochCandidates: number[], CsnapArg?: number): number | null {
-  if (!state.video || !Number.isFinite(state.C) || epochCandidates.length === 0) {
-    debugLog('resolve-epoch-error', { 
-      hasVideo: !!state.video, 
-      hasC: Number.isFinite(CsnapArg as any) || Number.isFinite(state.C), 
-      candidates: epochCandidates.length 
-    });
-    if (!state.video || epochCandidates.length === 0) return null;
-    if (!Number.isFinite(CsnapArg as any) && !Number.isFinite(state.C)) return null;
+  // 必須条件: video と 候補があること。C/Csnap は不要（窓は now−L と幅だけで決定）。
+  if (!state.video || epochCandidates.length === 0) {
+    debugLog('resolve-epoch-error', { hasVideo: !!state.video, candidates: epochCandidates.length });
+    return null;
   }
 
-  const Csnap = (Number.isFinite(CsnapArg as any) ? (CsnapArg as number) : (state.C as number));
+  // 右端は常に「今 − L」に固定
+  const L = state.config.latencySec;
+  const E_end = now() - L;
+
+  // タイムライン上の幅を算出
   const start = getSeekableStart(state.video);
   const end = getSeekableEnd(state.video);
-  const epsilon = 0.5;
+  const epsilon = 0.5; // ごく小さなガード
   const endGuard = Math.max(start, end - epsilon);
+  const widthSeekable = Math.max(0, endGuard - start);
 
-  // DVR窓をepoch座標に変換
-  const E_start = start + Csnap;
-  const E_end = endGuard + Csnap;
+  // Edge-Snap 測定済みなら D=bufferedEnd−seekableEnd を幅に反映（右端先行の補正）
+  let width = widthSeekable;
+  if (Number.isFinite(state.D) && state.D !== 0) {
+    const corrected = widthSeekable + state.D; // D は負方向（seekable が未来）なら幅を縮める
+    // 異常値はフォールバック
+    if (corrected > 5) {
+      width = corrected;
+    }
+  }
 
+  const E_start = E_end - width;
+
+  // デバッグ出力
+  const Csnap = (Number.isFinite(CsnapArg as any) ? (CsnapArg as number) : (state.C as number));
   debugLog('resolve-epoch', {
     candidates: epochCandidates,
-    DVR_window: { E_start, E_end },
-    timeline_window: { start, endGuard },
+    DVR_window: { E_start, E_end, width },
+    timeline_window: { start, endGuard, widthSeekable, D: state.D },
     Csnap,
+    L,
+  });
+  // 目視しやすい簡易ログ（ネストしない）
+  debugLog('window', {
+    E_start,
+    E_end,
+    width,
+    L,
+    Csnap,
+    D: state.D,
+    start,
+    endGuard,
+    widthSeekable,
   });
 
   // 窓内に入る候補をフィルタリング
@@ -510,7 +565,7 @@ export function resolveEpochFromCandidates(epochCandidates: number[], CsnapArg?:
   
   if (withinWindow.length > 0) {
     // 窓内に候補がある場合：現在時刻(now - L)に最も近いものを選択
-    const currentEpochEstimate = now() - state.config.latencySec;
+    const currentEpochEstimate = E_end; // = now() - L
     const best = withinWindow.reduce((prev, curr) => 
       Math.abs(curr - currentEpochEstimate) < Math.abs(prev - currentEpochEstimate) ? curr : prev
     );
