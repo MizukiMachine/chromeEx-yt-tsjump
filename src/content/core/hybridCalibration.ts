@@ -185,6 +185,7 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
   // 再生操作中や待機中は避ける
   if (state.locked) {
     debugLog('edge-snap-skip', { reason: 'locked' });
+    try { console.log('[EdgeSnap:SKIP]', { reason: 'locked' }); } catch {}
     return false;
   }
 
@@ -192,12 +193,40 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
   try {
     if ((video as any).readyState != null && (video as any).readyState < 3) {
       debugLog('edge-snap-skip', { reason: 'not-ready', readyState: (video as any).readyState });
+      try { console.log('[EdgeSnap:SKIP]', { reason: 'not-ready', readyState: (video as any).readyState }); } catch {}
       return false;
     }
   } catch {}
 
-  if (!isAtEdge(video, state.config.edgeSlackSec)) {
+  // 広告中は避ける
+  try {
+    if (isAdActive()) {
+      debugLog('edge-snap-skip', { reason: 'ad-active' });
+      try { console.log('[EdgeSnap:SKIP]', { reason: 'ad-active' }); } catch {}
+      return false;
+    }
+  } catch {}
+
+  // 端の近接に応じてダイナミックに余裕を広げる（過剰に広げすぎない）
+  let dynamicSlack = state.config.edgeSlackSec;
+  try {
+    const be = getBufferedEnd(video);
+    const lagToBuffered = Number.isFinite(be) ? ((be as number) - (video.currentTime || 0)) : NaN;
+    if (Number.isFinite(lagToBuffered)) {
+      const need = Math.max(0, (lagToBuffered as number) - 1);
+      dynamicSlack = Math.min(30, Math.max(dynamicSlack, need));
+    }
+  } catch {}
+
+  if (!isAtEdge(video, dynamicSlack)) {
     debugLog('edge-snap-skip', { reason: 'not-at-edge' });
+    try {
+      const seekableEnd = getSeekableEnd(video);
+      const bufferedEnd = getBufferedEnd(video);
+      const lagToBuffered = Number.isFinite(bufferedEnd) ? (bufferedEnd - (video.currentTime || 0)) : NaN;
+      const futureLead = (Number.isFinite(seekableEnd) && Number.isFinite(bufferedEnd)) ? (seekableEnd - (bufferedEnd as number)) : NaN;
+      console.log('[EdgeSnap:SKIP]', { reason: 'not-at-edge', lagToBuffered, futureLead, edgeSlackSec: state.config.edgeSlackSec, dynamicSlack });
+    } catch {}
     return false;
   }
 
@@ -226,21 +255,17 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
     delay: bufferedEnd - video.currentTime,
   });
 
-  // 重要イベントはコンソールにも出す（デバッグフラグ不要）
+  // 重要イベントは常時コンソールにも出す
   try {
-    // verboseログはデバッグ/QAフラグ時のみ
-    const verbose = getBool(Keys.DebugHybridCalib) || getBool(Keys.DebugSeekableProbe) || getBool(Keys.QALog);
-    if (verbose) {
-      // eslint-disable-next-line no-console
-      console.info('[EdgeSnap:SUCCESS]', {
-        ts: new Date().toISOString(),
-        C: state.C,
-        D: state.D,
-        bufferedEnd,
-        seekableEnd,
-        currentTime: (() => { try { return video.currentTime; } catch { return NaN; } })(),
-      });
-    }
+    // eslint-disable-next-line no-console
+    console.log('[EdgeSnap:SUCCESS]', {
+      ts: new Date().toISOString(),
+      C: state.C,
+      D: state.D,
+      bufferedEnd,
+      seekableEnd,
+      currentTime: (() => { try { return video.currentTime; } catch { return NaN; } })(),
+    });
   } catch {}
 
   return true;
@@ -378,7 +403,18 @@ export function startCalibration(): void {
           } else {
             state.D = 0;
           }
-          debugLog('provisional-init-calib', { prevC, newC: state.C, D: state.D, seekEnd, bufEnd, endEff });
+          // 初期Cの異常値ガード（あまりに大きい誤差のCは捨ててフォールバックへ誘導）
+          const e_raw = (Number.isFinite(seekEnd) && Number.isFinite(state.C as any)) ? ((seekEnd as number) + (state.C as number) - ((now()) - L)) : NaN;
+          const abnormal = Number.isFinite(e_raw) && Math.abs(e_raw as number) > 600; // 10分超なら異常
+          debugLog('provisional-init-calib', { prevC, newC: state.C, D: state.D, seekEnd, bufEnd, endEff, e_raw, abnormal });
+          try { console.log('[HybridCalib] provisional-init-calib', { C: state.C, D: state.D, seekEnd, bufEnd, endEff, e_raw, abnormal }); } catch {}
+          if (abnormal) {
+            const bad = state.C;
+            state.C = null;
+            state.D = 0;
+            debugLog('provisional-init-abort', { reason: 'abnormal-C', e_raw, badC: bad });
+            try { console.warn('[HybridCalib] provisional-init-abort', { reason: 'abnormal-C', e_raw, badC: bad }); } catch {}
+          }
         }
       } else {
         debugLog('provisional-init-skip', { reason: 'buffered-not-ready', seekEnd, bufEnd });
