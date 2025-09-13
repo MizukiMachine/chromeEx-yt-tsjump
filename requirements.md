@@ -54,7 +54,7 @@ FR-3 キャリブレーション（非ブロッキング）
 
 FR-4 ユーザーインターフェース
 - Jump ボタン: YouTube コントロール群近傍に設置。クリックで入力カード開閉
-- 入力カード: ドラッグ移動、ピン留め。選択 TZ と TZ の MRU は保存するが、カードの位置とピン状態はセッション内のみ（リロードでリセット）。フルスクリーン時も可視
+- 入力カード: ドラッグ移動。選択 TZ と TZ の MRU は保存するが、カードの位置はセッション内のみ（リロードでリセット）。フルスクリーン時も可視
 - キー操作: Alt+Shift+J（カード開閉・フォーカス）、Enter（ジャンプ実行）、Esc（閉じる）
 
 FR-5 通知
@@ -88,7 +88,7 @@ NFR-2 セキュリティ／プライバシー
 - 外部通信なし。最小権限（`commands`, `storage`, `scripting`, `activeTab`）
 - host permissions は `youtube.com` / `youtube-nocookie.com` に限定
 - CSP 準拠（インライン禁止、外部 CDN 不使用）
-- 保存データは `localStorage` のみ（カード位置、ピン状態、選択 TZ、MRU）
+- 保存データは `localStorage` のみ（カード位置、選択 TZ、MRU）
 
 NFR-3 アクセシビリティ
 - 入力カードは `role="dialog"` と `aria-label` を付与。閉じると動画へフォーカス復帰
