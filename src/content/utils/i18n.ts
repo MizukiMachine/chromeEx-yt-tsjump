@@ -42,7 +42,7 @@ const dict: Record<Lang, I18nDict> = {
       jump_header: 'Jump to timestamp',
       jump_button: 'Jump',
       placeholder_time: 'HH:mm:ss or HHmmss',
-      help_text: '・ Toggle Jump panel: Alt+Shift+J\n・ Customize shortcuts: chrome://extensions/shortcuts',
+      help_text: '・ Toggle Jump panel: Alt+Shift+J\n・ Customize shortcuts: chrome://extensions/shortcuts\n• If timestamp jump accuracy is significantly off, please reload the page.',
     },
     popup: {
       label_with_max: 'Label (A-Z, 0-9, +, -, 12max)',
@@ -72,7 +72,7 @@ const dict: Record<Lang, I18nDict> = {
       jump_header: 'タイムスタンプへジャンプ',
       jump_button: 'Jump',
       placeholder_time: 'HH:mm:ss または HHmmss',
-      help_text: '・ [ Alt+Shift+J ] 操作パネルの表示/非表示\n・ [ショートカットキー登録] chrome://extensions/shortcuts',
+      help_text: '・ [ Alt+Shift+J ] 操作パネルの表示/非表示\n・ [ショートカットキー登録] chrome://extensions/shortcuts\n・時刻ジャンプの精度が大きくズレたら、ページを再読み込みしてください',
     },
     popup: {
       label_with_max: '表示ラベル（英数字, +, -, 12文字まで）',
