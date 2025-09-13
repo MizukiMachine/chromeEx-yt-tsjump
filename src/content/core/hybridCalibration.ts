@@ -29,8 +29,10 @@ export interface HybridCalibConfig {
 // デフォルト設定
 export const DEFAULT_HYBRID_CONFIG: HybridCalibConfig = {
   latencySec: 20,
-  edgeSlackSec: 2,
-  nearLiveSlackSec: 6,
+  // QA観測から: UIがLIVEでも bufferedEnd 直前に張り付けないケースが多い
+  // Edge判定の余裕を広げ、自然動作で Edge-Snap が通りやすい既定値に調整
+  edgeSlackSec: 12,
+  nearLiveSlackSec: 18,
   pll: {
     hysSec: 2.5,
     consecN: 5,
