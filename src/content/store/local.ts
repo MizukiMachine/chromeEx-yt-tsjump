@@ -17,7 +17,9 @@ export const Keys = {
   CalAuto: 'cfg:cal:auto',
   DebugCal: 'debug:cal',
   DebugHybridCalib: 'debug:hybridCalib',
+  DebugSeekableProbe: 'debug:seekableProbe',
   DebugJump: 'debug:jump',
+  QALog: 'qa:log',
   ShortcutsHelpDismissed: 'shortcutsHelpDismissed',
   CfgHybrid: 'cfg:hybrid',
 } as const;

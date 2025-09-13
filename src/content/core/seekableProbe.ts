@@ -20,6 +20,7 @@ let attachedVideo: HTMLVideoElement | null = null;
 let initialized = false;
 let prevDcur: number | null = null;
 let prevApprox60: boolean | null = null;
+let lastSummaryMs = 0;
 
 function nowSec(): number { return Date.now() / 1000; }
 
@@ -64,6 +65,9 @@ export function startSeekableAnomalyProbe(video: HTMLVideoElement): void {
       const D_cur = Number.isFinite(bufEnd) && Number.isFinite(end) ? (bufEnd - end) : NaN;
       const approx60 = Number.isFinite(e_raw_h) ? Math.abs(e_raw_h - 3600) <= tolSec : null;
 
+      const futureLeadSec = (Number.isFinite(end) && Number.isFinite(bufEnd)) ? (end - (bufEnd as number)) : NaN;
+      const lagToBufferedSec = (Number.isFinite(bufEnd) && Number.isFinite(cur)) ? ((bufEnd as number) - (cur as number)) : NaN;
+
       const payload = {
         L,
         start,
@@ -71,6 +75,8 @@ export function startSeekableAnomalyProbe(video: HTMLVideoElement): void {
         bufferedEnd: bufEnd,
         currentTime: cur,
         D_cur,
+        futureLeadSec,
+        lagToBufferedSec,
         C_hybrid: C_h,
         D_hybrid: D_h,
         e_raw_h,
@@ -93,11 +99,22 @@ export function startSeekableAnomalyProbe(video: HTMLVideoElement): void {
         } catch {}
       }
 
-      // コンソールへも1行で出力（見やすいJSON）
-      try {
-        // eslint-disable-next-line no-console
-        console.log('[SeekProbe:TICK]', new Date().toISOString(), payload);
-      } catch {}
+      // 1分ごとに要約サマリのみ出力（通常のTICKはリングバッファへ）
+      const nowMs = Date.now();
+      if (nowMs - lastSummaryMs >= 60_000) {
+        lastSummaryMs = nowMs;
+        try {
+          // eslint-disable-next-line no-console
+          console.info('[SeekProbe:SUMMARY]', new Date(nowMs).toISOString(), {
+            D_cur,
+            futureLeadSec,
+            lagToBufferedSec,
+            end,
+            bufferedEnd: bufEnd,
+            currentTime: cur,
+          });
+        } catch {}
+      }
 
       // 重要変化のサマリ（D_curやapprox60の変化）
       const significantD = Number.isFinite(D_cur) && (prevDcur == null || Math.abs((D_cur as number) - prevDcur) >= 60);
