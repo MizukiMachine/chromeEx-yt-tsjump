@@ -144,11 +144,15 @@ function renderNow(getVideo: GetVideo) {
   const end = v ? getSeekableEnd(v) : 0
   const endGuard = Math.max(start, end - GUARD_SEC)
   const cur = v ? safe(() => v!.currentTime, 0) : 0
+  const bufEnd = v ? getBufferedEndSafe(v) : 0
+  const futureLeadSec = Number.isFinite(end) && Number.isFinite(bufEnd) ? (end - bufEnd) : 0
+  const lagToBufferedSec = Number.isFinite(bufEnd) ? (bufEnd - cur) : 0
   return (
     <div>
       <div>TZ: {tz}</div>
       <div>Seekable: start={start.toFixed(2)} end={end.toFixed(2)} endGuard={endGuard.toFixed(2)}</div>
       <div>currentTime: {cur.toFixed(2)}</div>
+      <div>lead(seekable−buffered): {futureLeadSec.toFixed(2)}s, lagToBuffered: {lagToBufferedSec.toFixed(2)}s</div>
     </div>
   )
 }
@@ -181,4 +185,15 @@ function safeStringify(v: unknown): string {
 
 function safe<T>(fn: () => T, fallback: T): T {
   try { return fn() } catch { return fallback }
+}
+
+function getBufferedEndSafe(v: HTMLVideoElement): number {
+  try {
+    const r = v.buffered
+    if (r && r.length > 0) {
+      const e = r.end(r.length - 1)
+      return Number.isFinite(e) ? e : 0
+    }
+  } catch {}
+  return 0
 }
