@@ -395,6 +395,7 @@ export function startCalibration(): void {
         const pllId = window.setInterval(executePllTick, state.config.pll.intervalMs);
         addTimer(pllId);
         debugLog('pll-started');
+        try { console.log('[HybridCalib] pll-started'); } catch {}
       } else {
         // 端に近い場合は軽く端へ寄せてから再試行させる
         try { nudgeToLiveEdge(state.video!); } catch {}
@@ -404,6 +405,7 @@ export function startCalibration(): void {
 
   addTimer(edgeMonitorId);
   debugLog('monitoring-started');
+  try { console.log('[HybridCalib] monitoring-started'); } catch {}
 }
 
 /**

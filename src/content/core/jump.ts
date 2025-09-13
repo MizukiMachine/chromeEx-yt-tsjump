@@ -220,10 +220,7 @@ export function jumpToLocalTimeHybrid(
         const CsnapTemp = (Date.now() / 1000 - L) - endEff;
         CsnapForJump = CsnapTemp;
         fallbackCsnap = CsnapTemp; // セッション固定
-        if (DEBUG) {
-          // eslint-disable-next-line no-console
-          console.debug('[Jump:Hybrid] force fallback Csnap due to D=0 & seekable lead', { futureLeadSec, CsnapTemp });
-        }
+        try { console.info('[Jump:Hybrid] force fallback Csnap due to D=0 & seekable lead', { futureLeadSec, CsnapTemp }); } catch {}
       }
     }
   } catch {}

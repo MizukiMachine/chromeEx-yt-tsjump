@@ -31,6 +31,7 @@ export function startAdWatch(root?: Element | Document, onChange?: (a: boolean) 
       if (next !== active) {
         active = next;
         try { onChange && onChange(active); } catch {}
+        try { console.log('[Ads] active=', active); } catch {}
       }
     } catch { /* ignore */ }
   };
