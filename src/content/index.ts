@@ -4,8 +4,10 @@
  * 役割 動画制御 UI表示 ユーザー操作処理
  */
 import { observeVideo, type VideoObserverHandle } from './dom/video';
-import { stopCalibration } from './core/calibration';
 import { initHybrid, startCalibration as startHybridCalibration, disposeHybrid } from './core/hybridCalibration';
+import { startSeekableAnomalyProbe, stopSeekableAnomalyProbe } from './core/seekableProbe';
+// 開発用: コンソールから停止できるように露出
+try { (window as any).__seekProbeStop = stopSeekableAnomalyProbe; } catch {}
 import { mountCard, type CardAPI } from './ui/card';
 import { sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
@@ -130,6 +132,8 @@ function setupVideoObserver() {
         
         // Edge-Snap監視開始
         startHybridCalibration();
+        // seekable先行の観測プローブ開始（デバッグフラグ有効時）
+        try { startSeekableAnomalyProbe(video); } catch {}
         
         console.log(`[Content:${frameTag()}] Hybrid calibration system started`);
       } catch (error) {
@@ -139,6 +143,8 @@ function setupVideoObserver() {
       console.log(`[Content:${frameTag()}] Video missing reason=${reason}`);
       sendStatusToBackground('video-lost', { reason }).catch(() => {});
       try { logStatus('video-lost', { reason }); } catch {}
+      // プローブ停止
+      try { stopSeekableAnomalyProbe(); } catch {}
     }
   });
 }
@@ -195,8 +201,8 @@ if (process.env.NODE_ENV === 'development') {
 // ページアンロード時の後片付け
 window.addEventListener('unload', () => {
   videoObserver?.disconnect();
-  stopCalibration();
   disposeHybrid(); // ハイブリッドシステムのクリーンアップ
+  stopSeekableAnomalyProbe();
   disposeMessageListener?.();
 });
 
