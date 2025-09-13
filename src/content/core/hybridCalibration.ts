@@ -182,6 +182,20 @@ function attachPlaybackLockEvents(video: HTMLVideoElement): void {
  * 一度だけbufferedEndでCを確定し、同時にD=bufferedEnd-seekableEndを記録
  */
 function executeEdgeSnap(video: HTMLVideoElement): boolean {
+  // 再生操作中や待機中は避ける
+  if (state.locked) {
+    debugLog('edge-snap-skip', { reason: 'locked' });
+    return false;
+  }
+
+  // メディアが十分に用意できているか（HAVE_FUTURE_DATA 以上を目安）
+  try {
+    if ((video as any).readyState != null && (video as any).readyState < 3) {
+      debugLog('edge-snap-skip', { reason: 'not-ready', readyState: (video as any).readyState });
+      return false;
+    }
+  } catch {}
+
   if (!isAtEdge(video, state.config.edgeSlackSec)) {
     debugLog('edge-snap-skip', { reason: 'not-at-edge' });
     return false;
@@ -346,25 +360,28 @@ export function startCalibration(): void {
       const seekEnd = getSeekableEnd(v);
       const bufEnd = getBufferedEnd(v);
       const preferBufferedThreshold = 120; // seconds
-      let endEff = Number.NaN;
-      if (Number.isFinite(bufEnd) && bufEnd > 0) {
+      // 品質ゲート: bufferedEnd が整備されていない間は恒久Cを作らない（フォールバック使用に誘導）
+      if (Number.isFinite(bufEnd) && (bufEnd as number) > 0) {
+        let endEff = Number.NaN;
         if (!Number.isFinite(seekEnd) || seekEnd <= 0 || (seekEnd - (bufEnd as number)) > preferBufferedThreshold) {
           endEff = bufEnd as number;
         }
-      }
-      if (!Number.isFinite(endEff)) {
-        endEff = Number.isFinite(seekEnd) && seekEnd > 0 ? seekEnd : (Number.isFinite(bufEnd) ? (bufEnd as number) : Number.NaN);
-      }
-      if (Number.isFinite(endEff)) {
-        const prevC = state.C;
-        state.C = (now() - L) - (endEff as number);
-        // D は両方ある場合のみ記録
-        if (Number.isFinite(bufEnd) && Number.isFinite(seekEnd)) {
-          state.D = (bufEnd as number) - (seekEnd as number);
-        } else {
-          state.D = 0;
+        if (!Number.isFinite(endEff)) {
+          endEff = Number.isFinite(seekEnd) && seekEnd > 0 ? seekEnd : (Number.isFinite(bufEnd) ? (bufEnd as number) : Number.NaN);
         }
-        debugLog('provisional-init-calib', { prevC, newC: state.C, D: state.D, seekEnd, bufEnd, endEff });
+        if (Number.isFinite(endEff)) {
+          const prevC = state.C;
+          state.C = (now() - L) - (endEff as number);
+          // D は両方ある場合のみ記録
+          if (Number.isFinite(bufEnd) && Number.isFinite(seekEnd)) {
+            state.D = (bufEnd as number) - (seekEnd as number);
+          } else {
+            state.D = 0;
+          }
+          debugLog('provisional-init-calib', { prevC, newC: state.C, D: state.D, seekEnd, bufEnd, endEff });
+        }
+      } else {
+        debugLog('provisional-init-skip', { reason: 'buffered-not-ready', seekEnd, bufEnd });
       }
     }
   } catch {}

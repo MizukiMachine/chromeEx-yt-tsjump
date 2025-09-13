@@ -202,6 +202,32 @@ export function jumpToLocalTimeHybrid(
     }
   }
 
+  // 安全弁: Cが存在しても D=0 かつ seekable が大きく先行している場合は、フォールバックCsnapを強制
+  try {
+    const st = getHybridState();
+    const seekEnd = getSeekableEnd(_video);
+    let bufEnd = 0;
+    const r = _video.buffered;
+    if (r && r.length > 0) {
+      try { bufEnd = r.end(r.length - 1); } catch {}
+    }
+    const futureLeadSec = (Number.isFinite(seekEnd) && Number.isFinite(bufEnd)) ? (seekEnd - bufEnd) : 0;
+    const needForceFallback = Number.isFinite(CsnapForJump as any) && st.D === 0 && futureLeadSec > 120;
+    if (needForceFallback) {
+      const L = getHybridConfig()?.latencySec ?? 20;
+      const endEff = effectiveEndForJump(_video);
+      if (endEff > 0) {
+        const CsnapTemp = (Date.now() / 1000 - L) - endEff;
+        CsnapForJump = CsnapTemp;
+        fallbackCsnap = CsnapTemp; // セッション固定
+        if (DEBUG) {
+          // eslint-disable-next-line no-console
+          console.debug('[Jump:Hybrid] force fallback Csnap due to D=0 & seekable lead', { futureLeadSec, CsnapTemp });
+        }
+      }
+    }
+  } catch {}
+
   const success = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined);
   if (!success) {
     return { ok: false, decision: 'parse-error', reason: 'jump execution failed' };
