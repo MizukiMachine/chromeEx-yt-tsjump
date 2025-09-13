@@ -210,6 +210,23 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
     delay: bufferedEnd - video.currentTime,
   });
 
+  // 重要イベントはコンソールにも出す（デバッグフラグ不要）
+  try {
+    // verboseログはデバッグ/QAフラグ時のみ
+    const verbose = getBool(Keys.DebugHybridCalib) || getBool(Keys.DebugSeekableProbe) || getBool(Keys.QALog);
+    if (verbose) {
+      // eslint-disable-next-line no-console
+      console.info('[EdgeSnap:SUCCESS]', {
+        ts: new Date().toISOString(),
+        C: state.C,
+        D: state.D,
+        bufferedEnd,
+        seekableEnd,
+        currentTime: (() => { try { return video.currentTime; } catch { return NaN; } })(),
+      });
+    }
+  } catch {}
+
   return true;
 }
 
