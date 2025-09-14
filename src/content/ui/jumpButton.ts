@@ -1,4 +1,5 @@
 /** Insert a Jump button into YouTube controls and keep it alive during SPA updates. */
+import { t } from '../utils/i18n';
 
 let controlsMO: MutationObserver | null = null;
 
@@ -19,9 +20,10 @@ function mountJumpButton(toggle: { isOpen: () => boolean; openSmart: () => void;
   btn.className = 'ytp-button ytp-jump';
   btn.id = 'ytp-jump';
   btn.type = 'button';
-  btn.title = 'Jump';
-  btn.setAttribute('aria-label', 'Jump');
-  btn.innerHTML = '<span class="ytp-jump__inner"><span class="ytp-jump__label">Jump</span></span>';
+  const label = t('ui.jump_button');
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  btn.innerHTML = `<span class="ytp-jump__inner"><span class="ytp-jump__label">${label}</span></span>`;
   btn.addEventListener('click', () => {
     try {
       const isOpen = toggle.isOpen();

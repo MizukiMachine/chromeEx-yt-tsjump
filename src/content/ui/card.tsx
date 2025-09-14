@@ -441,12 +441,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           setCustomButtons(getEnabledButtons({ buttons: newButtons }))
           setEditingButton(null)
           setEditingValues({ label: '', seconds: '' })
-          showToast('Button updated!', 'info')
+          showToast(t('toast.button_updated'), 'info')
         } else {
-          showToast('Button not found!', 'warn')
+          showToast(t('toast.button_not_found'), 'warn')
         }
       }).catch(() => {
-        showToast('Failed to update button', 'warn')
+        showToast(t('toast.failed_update'), 'warn')
       })
     }
 
@@ -744,7 +744,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               {showCustomButtons ? '▲' : '▼'}
             </button>
             <button onClick={() => setShowHelp((v) => !v)} title={t('tooltip.help')} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>?</button>
-            <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { setString(Keys.Lang, next) } catch {}; setLang(next) }} title={lang === 'en' ? '日本語' : 'English'} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
+            <button onClick={() => { const next = lang === 'en' ? 'ja' : 'en'; try { setString(Keys.Lang, next) } catch {}; setLang(next) }} title={lang === 'en' ? t('options.lang_ja') : t('options.lang_en')} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>{lang === 'en' ? 'EN' : 'JA'}</button>
             <button onClick={() => api.close()} title={t('tooltip.close')} style={{ background: 'transparent', color: '#bbb', border: 0, cursor: 'pointer' }}>×</button>
           </div>
         </div>
@@ -802,11 +802,11 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             }}
             inputMode="numeric"
             pattern="[0-9:]*"
-            placeholder={'HH:mm:ss or HHmmss'}
+            placeholder={t('ui.placeholder_time')}
             spellcheck={false}
             style={{ flex:'1 1 auto', minWidth:0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
             />
-            <button type="submit" style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #444', background: 'rgba(17,17,17,.92)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto' }}>Jump</button>
+            <button type="submit" style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #444', background: 'rgba(17,17,17,.92)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto' }}>{t('ui.jump_button')}</button>
           </div>
           {/* TZ selector (small line, text smaller than main) */}
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center', width: '100%' }}>
@@ -858,7 +858,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                       type="text"
                       value={editingValues.label}
                       onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
-                      placeholder="e.g. +30"
+                      placeholder={t('popup.label_ph')}
                       maxLength={12}
                       autoFocus
                     />
@@ -869,7 +869,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                       type="number"
                       value={editingValues.seconds}
                       onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
-                      placeholder="e.g. 30 or -30"
+                      placeholder={t('popup.seconds_ph')}
                     />
                   </div>
                   <div class="editor-buttons">
@@ -905,7 +905,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               type="text"
               value={editingValues.label}
               onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
-              placeholder="e.g. +30"
+              placeholder={t('popup.label_ph')}
               maxLength={12}
               autoFocus
               style={{
@@ -935,7 +935,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               type="number"
               value={editingValues.seconds}
               onInput={(e: any) => setEditingValues(prev => ({ ...prev, seconds: e.currentTarget.value }))}
-              placeholder="e.g. 30 or -30"
+              placeholder={t('popup.seconds_ph')}
               style={{
                 background: '#1a1a1a',
                 border: '1px solid #555',

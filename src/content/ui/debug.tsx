@@ -1,6 +1,7 @@
 import { render, h } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { getAll, subscribe, clear, type LogEvent } from '../log/buffer'
+import { t } from '../utils/i18n'
 import { getString, Keys } from '../store/local'
 import { getSeekableEnd, getSeekableStart, GUARD_SEC } from '../core/seek'
 import { getHybridState, getHybridConfig } from '../core/hybridCalibration'
@@ -94,7 +95,7 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
         <div class="top">
           <strong>Debug Panel</strong>
           <span class="sp" />
-          <input value={filter} onInput={(e: any) => setFilter(e.currentTarget.value)} placeholder="Search..." />
+          <input value={filter} onInput={(e: any) => setFilter(e.currentTarget.value)} placeholder={t('debug.search_ph')} />
           <button class="btn" title="Copy debug snapshot" onClick={copySnapshot}>Copy</button>
           <button class="btn" title="Clear logs" onClick={() => clear()}>Clear</button>
           <button class="btn" title="Close" onClick={() => setOpen(false)}>×</button>

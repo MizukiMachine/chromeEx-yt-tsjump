@@ -12,7 +12,9 @@ interface I18nDict {
   // Edit popup
   popup: {
     label_with_max: string
+    label_ph: string
     seconds_to_seek: string
+    seconds_ph: string
     save: string
     cancel: string
   }
@@ -33,6 +35,13 @@ interface I18nDict {
     moved_start: string
     ad_paused: string
     clamped: string
+    button_updated: string
+    button_not_found: string
+    failed_update: string
+  }
+  // Debug panel
+  debug: {
+    search_ph: string
   }
   // Options page
   options: {
@@ -67,7 +76,9 @@ const dict: Record<Lang, I18nDict> = {
     },
     popup: {
       label_with_max: 'Label (A-Z, 0-9, +, -, 12max)',
+      label_ph: 'e.g. +30',
       seconds_to_seek: 'Seconds to seek',
+      seconds_ph: 'e.g. 30 or -30',
       save: 'Save',
       cancel: 'Cancel',
     },
@@ -86,6 +97,12 @@ const dict: Record<Lang, I18nDict> = {
       moved_start: 'That time isn\'t available — moved to the start.',
       ad_paused: 'An ad is playing, so seeking is paused.',
       clamped: 'Clamped to playable range.',
+      button_updated: 'Button updated!',
+      button_not_found: 'Button not found!',
+      failed_update: 'Failed to update button',
+    },
+    debug: {
+      search_ph: 'Search...',
     },
     options: {
       header: 'Extension Options',
@@ -117,7 +134,9 @@ const dict: Record<Lang, I18nDict> = {
     },
     popup: {
       label_with_max: '表示ラベル（英数字, +, -, 12文字まで）',
+      label_ph: '例: +30',
       seconds_to_seek: '移動秒数',
+      seconds_ph: '例: 30 または -30',
       save: '保存',
       cancel: 'キャンセル',
     },
@@ -136,6 +155,12 @@ const dict: Record<Lang, I18nDict> = {
       moved_start: '指定時刻は範囲外のため、開始位置に移動しました。',
       ad_paused: '広告再生中のため、機能を一時停止しています。',
       clamped: '再生可能範囲に調整しました。',
+      button_updated: 'ボタンを更新しました',
+      button_not_found: 'ボタンが見つかりません',
+      failed_update: 'ボタンの更新に失敗しました',
+    },
+    debug: {
+      search_ph: '検索…',
     },
     options: {
       header: '拡張機能オプション',
