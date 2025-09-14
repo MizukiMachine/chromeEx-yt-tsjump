@@ -1,5 +1,5 @@
 import { render, h } from 'preact'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
 import { jumpToLocalTimeHybrid } from '../core/jump'
@@ -11,6 +11,7 @@ import { isAdActive } from '../core/adsense'
 import { showToast } from './toast'
 import { useCardPosition } from './hooks/useCardPosition'
 import { useDragHandling } from './hooks/useDragHandling'
+import useCustomButtonsLayout from './hooks/useCustomButtonsLayout'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -85,10 +86,10 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setCustomButtons(getEnabledButtons(loadCustomButtons()))
       })
     }, [])
-    // レイアウト状態：null = 未確定（非表示）, false = 6×1, true = 3×2
-    const [isCompactLayout, setIsCompactLayout] = useState<boolean | null>(null)
     // 初期表示状態は localStorage から復元（既定は非表示）
     const [showCustomButtons, setShowCustomButtons] = useState(() => getBool(Keys.CardCustomOpen))
+    // レイアウト状態は専用フックに委譲（null = 非表示時、false = 6×1, true = 3×2）
+    const isCompactLayout = useCustomButtonsLayout(cardRef, showCustomButtons, [customButtons], isEditMode)
     // ポータル用のボタン要素参照
     const buttonRefs = useRef<(HTMLElement | null)[]>([])
     // 補助状態やデバッグ表示は撤去
@@ -205,120 +206,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
 
     // 無操作フェードは廃止（シンプル運用）
 
-    // 位置は useCardPosition に集約
-    useEffect(() => {
-      if (showCustomButtons && isCompactLayout !== null) {
-        determineButtonLayout()
-      }
-    }, [showCustomButtons, isCompactLayout])
-    
-    const measureRowWidthViaGhost = (container: HTMLElement, gap = 4): number => {
-      const root = container.getRootNode() as Document | ShadowRoot
-      const ghost = document.createElement('div')
-      ghost.style.cssText = [
-        'position:absolute','visibility:hidden','left:-99999px','top:0',
-        'display:flex','flex-wrap:nowrap',`gap:${gap}px`
-      ].join(';')
-      
-      // Shadow DOMの場合はshadowRootに、通常のDOMの場合はdocumentに追加
-      if (root instanceof ShadowRoot) {
-        root.appendChild(ghost)
-      } else {
-        document.body.appendChild(ghost)
-      }
-
-      const buttons = Array.from(container.querySelectorAll<HTMLElement>('.custom-button'))
-      buttons.forEach(btn => {
-        const clone = btn.cloneNode(true) as HTMLElement
-        clone.style.flex = '0 0 auto'
-        clone.style.width = 'auto'
-        clone.style.maxWidth = 'none'
-        const label = clone.querySelector('.label') as HTMLElement | null
-        if (label) label.style.whiteSpace = 'nowrap'
-        ghost.appendChild(clone)
-      })
-
-      const width = Math.ceil(ghost.getBoundingClientRect().width)
-      ghost.remove()
-      return width
-    }
-
-    // カスタムボタンのレイアウト決定（Ghost DOM計測方式）
-    const determineButtonLayout = () => {
-      console.log('determineButtonLayout called!')
-      const customButtonsContainer = cardRef.current?.querySelector('.custom-buttons')
-      if (!customButtonsContainer) {
-        console.log('No custom buttons container found')
-        setIsCompactLayout(false)
-        return
-      }
-      
-      const container = customButtonsContainer as HTMLElement
-      const buttons = container.querySelectorAll('.custom-button')
-      
-      // 6個未満の場合は常に1行表示
-      if (buttons.length < 6) {
-        setIsCompactLayout(false)
-        return
-      }
-      
-      // Ghost DOM方式で自然幅を測定
-      const neededRowWidth = measureRowWidthViaGhost(container, 4)
-      const containerWidth = Math.floor(container.getBoundingClientRect().width)
-
-      // 個別ボタンの文字数チェック（10文字以上で早期移行）
-      const buttonLabels = Array.from(buttons).map(btn => btn.textContent || '')
-      const hasLongLabel = buttonLabels.some(label => label.length >= 10)
-
-      // 判定（余裕をもって早めに3×2に移行）
-      const SAFETY_MARGIN = 8 // 8px の安全マージン
-      const exceedsWidth = neededRowWidth > containerWidth - SAFETY_MARGIN
-      const needsCompact = hasLongLabel || exceedsWidth
-
-      console.log('Layout calculation (ghost DOM method):', {
-        neededRowWidth,
-        containerWidth,
-        buttonCount: buttons.length,
-        needsCompact,
-        hasLongLabel,
-        exceedsWidth,
-        safetyMargin: SAFETY_MARGIN,
-        availableWidth: containerWidth - SAFETY_MARGIN,
-        buttonLabels,
-        longLabels: buttonLabels.filter(label => label.length >= 10)
-      })
-      
-      setIsCompactLayout(needsCompact)
-    }
-    
-    // 初期状態は localStorage の値を採用するため、強制非表示の初期化は廃止
-
-    // カスタムボタン表示時の初期レイアウト決定（描画前に実行）
-    useLayoutEffect(() => {
-      if (!showCustomButtons) {
-        setIsCompactLayout(null) // 非表示時は未確定状態に
-        return
-      }
-      
-      // ChatGPT推奨：rAFは不要、useLayoutEffect内で直接実行
-      determineButtonLayout()
-    }, [showCustomButtons, customButtons])
-
-    // リサイズやボタン変更時のレイアウト再計算
-    useEffect(() => {
-      if (showCustomButtons && isCompactLayout !== null) {
-        // ResizeObserverでコンテナサイズ変化を監視
-        const container = cardRef.current?.querySelector('.custom-buttons')
-        if (!container) return
-        
-        const resizeObserver = new ResizeObserver(() => {
-          determineButtonLayout()
-        })
-        
-        resizeObserver.observe(container as Element)
-        return () => resizeObserver.disconnect()
-      }
-    }, [showCustomButtons, customButtons, isEditMode])
+    // 位置は useCardPosition に集約（レイアウト計算は専用フックに委譲）
+    // 初期状態は localStorage の値を採用（レイアウトはフックが決定）
 
     // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
     useEffect(() => {
