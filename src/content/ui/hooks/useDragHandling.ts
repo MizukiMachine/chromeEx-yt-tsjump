@@ -19,9 +19,12 @@ export function useDragHandling(
     let startX = 0, startY = 0
     
     const onDown = (e: MouseEvent) => {
+      // 左クリック以外は無視（ドラッグ開始しない）
+      if (e.button !== 0) return
       const target = e.target as HTMLElement
       // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
-      const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
+      // さらにヘルプテキスト内（.help-text）ではテキスト選択を優先してドラッグを無効化
+      const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu, .help-text'
       if (target && (target.closest(interactiveSel))) return
       
       draggingRef.current = true
