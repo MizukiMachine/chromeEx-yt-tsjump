@@ -1,5 +1,7 @@
 import { h, render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
+import { t } from '../content/utils/i18n'
+import { setString, Keys } from '../content/store/local'
 
 type State = {
   debugAll: boolean
@@ -22,6 +24,8 @@ function App() {
     useDefaults: true,
   })
   const [status, setStatus] = useState<string>('')
+
+  // use global i18n (content/utils/i18n) via options.* keys
 
   // Load from chrome.storage.local
   useEffect(() => {
@@ -57,14 +61,23 @@ function App() {
     } catch {}
   }, [])
 
+  // Update static header/title when language changes
+  useEffect(() => {
+    try {
+      const h1 = document.querySelector('header h1')
+      if (h1) h1.textContent = t('options.header')
+      document.title = t('options.title')
+    } catch {}
+  }, [state.lang])
+
   function onSave() {
     const enabledList = Array.from(state.tzEnabled)
-    if (enabledList.length === 0) { flash('Select at least one time zone'); return }
+    if (enabledList.length === 0) { flash(t('options.err_select_one')); return }
     chrome.storage?.local?.set({
       'debug:all': state.debugAll,
       'lang': state.lang,
       'tz:enabled': enabledList
-    }, () => { flash('Saved') })
+    }, () => { flash(t('options.saved')) })
   }
 
   function onReset() {
@@ -78,7 +91,7 @@ function App() {
       'debug:all': false,
       'lang': 'en',
       'tz:enabled': DEFAULT_ENABLED_TZ
-    }, () => { flash('Reset to defaults') })
+    }, () => { flash(t('options.reset_done')) })
   }
 
   function flash(msg: string) {
@@ -106,38 +119,43 @@ function App() {
       <div class="row">
         <label>
           <input type="checkbox" checked={state.debugAll} onChange={(e: any) => setState(s => ({ ...s, debugAll: !!e.currentTarget.checked }))} />
-          Enable debug mode
+          {t('options.debug_mode')}
         </label>
         <div style={{ color:'#666', fontSize:'12px', marginTop:'4px' }}>
-          {state.lang === 'ja' 
-            ? 'デバッグログが表示され、ショートカットキーでデバッグパネルを表示できるようになります。'
-            : 'Shows debug logs and enables the debug panel shortcut.'}
+          {t('options.debug_desc')}
         </div>
       </div>
       <div class="row">
         <label>
-          Default language
-          <select value={state.lang} onChange={(e: any) => setState(s => ({ ...s, lang: e.currentTarget.value }))} style={{ marginLeft: '8px' }}>
-            <option value="en">English</option>
-            <option value="ja">日本語</option>
+          {t('options.default_language')}
+          <select 
+            value={state.lang} 
+            onChange={(e: any) => {
+              const v = e.currentTarget.value
+              setState(s => ({ ...s, lang: v }))
+              try { setString(Keys.Lang, v) } catch {}
+            }} 
+            style={{ marginLeft: '8px' }}>
+            <option value="en">{t('options.lang_en')}</option>
+            <option value="ja">{t('options.lang_ja')}</option>
           </select>
         </label>
       </div>
       <div class="row">
         <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
-          <div>Time zones to show</div>
+          <div>{t('options.tz_title')}</div>
           <label style={{ display:'inline-flex', alignItems:'center', gap:'6px' }}>
             <input type="checkbox" checked={state.showAll} onChange={(e:any)=> setState(s => ({ ...s, showAll: !!e.currentTarget.checked }))} />
-            Show all
+            {t('options.show_all')}
           </label>
           <input 
             type="text" 
-            placeholder="Filter..." 
+            placeholder={t('options.filter_ph')} 
             value={state.filter}
             onInput={(e:any)=> setState(s => ({ ...s, filter: e.currentTarget.value }))}
             style={{ flex:'1', minWidth:'120px', padding:'4px 6px', border:'1px solid #ccc', borderRadius:'4px' }}
           />
-          <span style={{ color:'#666', fontSize:'12px' }}>{selectedCount} selected • {visibleCount} visible</span>
+          <span style={{ color:'#666', fontSize:'12px' }}>{t('options.selected_visible', String(selectedCount), String(visibleCount))}</span>
         </div>
         {/* Reset helper placed where bulk actions were */}
         <label style={{ display:'inline-flex', alignItems:'center', gap:'6px', margin: '0 0 6px 0' }}>
@@ -153,9 +171,7 @@ function App() {
               }))
             }}
           />
-          {state.lang === 'ja' 
-            ? `初期設定タイムゾーン${DEFAULT_ENABLED_TZ.length}個に設定する`
-            : `Use default time zones (${DEFAULT_ENABLED_TZ.length})`}
+          {t('options.defaults_label', String(DEFAULT_ENABLED_TZ.length))}
         </label>
         <div style={{ maxHeight: '260px', overflow: 'auto', border: '1px solid #ccc', padding: '8px', borderRadius: '6px', opacity: state.useDefaults ? 0.6 : 1 }}>
           {filtered.map(z => (
@@ -171,7 +187,7 @@ function App() {
                     else {
                       next.delete(z)
                       if (next.size === 0) {
-                        flash('At least one time zone must remain selected')
+                        flash(t('err_must_remain'))
                         return s
                       }
                     }
@@ -186,8 +202,8 @@ function App() {
         </div>
       </div>
       <div class="actions">
-        <button onClick={onSave}>Save</button>
-        <button class="secondary" onClick={onReset}>Reset</button>
+        <button onClick={onSave}>{t('options.save')}</button>
+        <button class="secondary" onClick={onReset}>{t('options.reset')}</button>
       </div>
       {status && <div class="status">{status}</div>}
     </div>

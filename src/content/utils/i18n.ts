@@ -34,6 +34,27 @@ interface I18nDict {
     ad_paused: string
     clamped: string
   }
+  // Options page
+  options: {
+    header: string
+    title: string
+    debug_mode: string
+    debug_desc: string
+    default_language: string
+    lang_en: string
+    lang_ja: string
+    tz_title: string
+    show_all: string
+    filter_ph: string
+    defaults_label: string // uses {0} for count
+    selected_visible: string // uses {0} selected • {1} visible
+    save: string
+    reset: string
+    saved: string
+    reset_done: string
+    err_select_one: string
+    err_must_remain: string
+  }
 }
 
 const dict: Record<Lang, I18nDict> = {
@@ -66,6 +87,26 @@ const dict: Record<Lang, I18nDict> = {
       ad_paused: 'An ad is playing, so seeking is paused.',
       clamped: 'Clamped to playable range.',
     },
+    options: {
+      header: 'Extension Options',
+      title: 'YouTube Long Seek & Timestamp Jump — Options',
+      debug_mode: 'Enable debug mode',
+      debug_desc: 'Shows debug logs and enables the debug panel shortcut.',
+      default_language: 'Default language',
+      lang_en: 'English',
+      lang_ja: '日本語',
+      tz_title: 'Time zones to show',
+      show_all: 'Show all',
+      filter_ph: 'Filter...',
+      defaults_label: 'Use default time zones ({0})',
+      selected_visible: '{0} selected • {1} visible',
+      save: 'Save',
+      reset: 'Reset',
+      saved: 'Saved',
+      reset_done: 'Reset to defaults',
+      err_select_one: 'Select at least one time zone',
+      err_must_remain: 'At least one time zone must remain selected',
+    },
   },
   ja: {
     ui: {
@@ -95,6 +136,26 @@ const dict: Record<Lang, I18nDict> = {
       moved_start: '指定時刻は範囲外のため、開始位置に移動しました。',
       ad_paused: '広告再生中のため、機能を一時停止しています。',
       clamped: '再生可能範囲に調整しました。',
+    },
+    options: {
+      header: '拡張機能オプション',
+      title: 'YouTube 長時間シーク＆時刻ジャンプ — オプション',
+      debug_mode: 'デバッグモードを有効にする',
+      debug_desc: 'ログにデバッグ情報を表示し、ショートカットでデバッグパネルを開けるようになります。',
+      default_language: '表示言語',
+      lang_en: 'English',
+      lang_ja: '日本語',
+      tz_title: '表示するタイムゾーン',
+      show_all: 'すべて表示',
+      filter_ph: '絞り込み…',
+      defaults_label: '初期設定タイムゾーン{0}個に設定する',
+      selected_visible: '選択中 {0} 件 • 表示 {1} 件',
+      save: '保存',
+      reset: 'リセット',
+      saved: '保存しました',
+      reset_done: '初期設定に戻しました',
+      err_select_one: '最低1件は選択してください',
+      err_must_remain: '最低1件は選択されたままにしてください',
     },
   },
 }
