@@ -455,21 +455,37 @@ function nudgeToLiveEdge(video: HTMLVideoElement): void {
   if (state.locked) { debugLog('nudge-skip', { reason: 'locked' }); return; }
   const nowMs = Date.now();
   if (nowMs - state.lastNudgeAt < 5000) { debugLog('nudge-skip', { reason: 'cooldown' }); return; }
-  // 近接しているか（seekable基準）
-  const end = getSeekableEnd(video);
-  const cur = video.currentTime;
-  if (!Number.isFinite(end) || !Number.isFinite(cur)) return;
-  const dist = end - cur;
-  if (dist < 0 || dist > state.config.nearLiveSlackSec) { return; }
-  // 軽く端へ寄せる：bufferedEndの直前に狙ってシーク（isAtEdge基準に確実に入れる）
+
+  // メディアの準備状況を確認（HAVE_FUTURE_DATA 以上）
   try {
-    const be = getBufferedEnd(video);
-    if (Number.isFinite(be)) {
-      const target = Math.max(getSeekableStart(video), (be as number) - 0.5);
-      seek(video, target);
-      debugLog('nudge', { to: target, be, dist });
-      state.lastNudgeAt = nowMs;
+    if ((video as any).readyState != null && (video as any).readyState < 3) {
+      debugLog('nudge-skip', { reason: 'not-ready', readyState: (video as any).readyState });
+      return;
     }
+  } catch {}
+
+  // 近接しているか（buffered基準で判定する）
+  const cur = video.currentTime;
+  const be = getBufferedEnd(video);
+  if (!Number.isFinite(cur) || !Number.isFinite(be)) { debugLog('nudge-skip', { reason: 'invalid-ends', cur, be }); return; }
+
+  // lag（= bufferedEnd − currentTime）が小さいほど端に近い
+  const lagToBuffered = (be as number) - cur;
+  // 最大許容距離（厳しめに 30s、設定値がそれ以下なら 30 を優先。上限は 45s を目安）
+  const maxLag = Math.min(45, Math.max(30, state.config.nearLiveSlackSec));
+  if (lagToBuffered <= 0 || lagToBuffered > maxLag) {
+    debugLog('nudge-skip', { reason: 'not-near-buffered', lagToBuffered, maxLag });
+    return;
+  }
+
+  // 軽く端へ寄せる：bufferedEnd の直前に狙ってシーク（isAtEdge判定に入りやすくする）
+  try {
+    const start = getSeekableStart(video);
+    const target = Math.max(start, (be as number) - 0.5);
+    seek(video, target);
+    debugLog('nudge', { to: target, lagToBuffered, be, maxLag });
+    try { console.log('[HybridCalib] nudge', { to: target, lagToBuffered, be, maxLag }); } catch {}
+    state.lastNudgeAt = nowMs;
   } catch {}
 }
 
