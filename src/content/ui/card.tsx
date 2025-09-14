@@ -325,11 +325,19 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       try {
         const anyChrome = (globalThis as any).chrome
         if (!anyChrome?.storage?.local) return
-        anyChrome.storage.local.get(['tz:preset'], (res: any) => {
-          const arr = res?.['tz:preset']
+        anyChrome.storage.local.get(['tz:enabled'], (res: any) => {
+          const arr = res?.['tz:enabled']
           if (Array.isArray(arr) && arr.length > 0) {
             const uniq = Array.from(new Set(arr.filter((x) => typeof x === 'string' && x)))
-            if (uniq.length > 0) setPresets(uniq)
+            if (uniq.length > 0) {
+              setPresets(uniq)
+              // 現在選択中のゾーンが無効化されていたら DEFAULT_ZONE にフォールバック
+              const cur = zone
+              if (!uniq.includes(cur)) {
+                setZone(DEFAULT_ZONE)
+                try { setString(Keys.TzCurrent, DEFAULT_ZONE) } catch {}
+              }
+            }
           }
         })
       } catch {}

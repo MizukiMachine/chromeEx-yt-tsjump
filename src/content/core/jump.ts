@@ -7,7 +7,7 @@ import { parseAndNormalize24h } from './timeparse';
 import { getTodayInZone, toEpochInZone, type YMD } from './timezone';
 import { isAdActive } from './adsense';
 import { showToast } from '../ui/toast';
-import { getString } from '../store/local';
+import { getString, getBool, Keys } from '../store/local';
 import { t } from '../utils/i18n';
 // startEpoch/latency 補正は廃止（シンプル化）
 import { getSeekableStart, getSeekableEnd, seek, GUARD_SEC } from './seek';
@@ -59,7 +59,7 @@ export function jumpToLocalTimeHybrid(
     return { ok: false, decision: 'parse-error', reason: 'ad-active' };
   }
 
-  const DEBUG = safeGetLocal('debug:jump') === '1' || safeGetLocal('debug:hybridCalib') === '1';
+  const DEBUG = getBool(Keys.DebugAll) || safeGetLocal('debug:jump') === '1' || safeGetLocal('debug:hybridCalib') === '1';
   const parsed = parseAndNormalize24h(input);
   if (!parsed.ok) {
     return { ok: false, decision: 'parse-error', reason: parsed.error };

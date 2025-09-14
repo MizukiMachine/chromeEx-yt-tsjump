@@ -12,8 +12,7 @@ import { mountCard, type CardAPI } from './ui/card';
 import { sendStatusToBackground } from './bridge/runtime';
 import { startAdWatch } from './core/adsense';
 import { initToast, showToast } from './ui/toast';
-// removed unused local storage helpers to satisfy noUnusedLocals
-// import { getBool, setBool, setString, Keys } from './store/local';
+import { getBool, Keys } from './store/local';
 import { t } from './utils/i18n';
 import { mountDebug, type DebugAPI } from './ui/debug';
 import { logStatus, logAd } from './events/emit';
@@ -97,7 +96,8 @@ function setupVideoObserver() {
       ensureShadowRoot();
       ensureCard();
       ensureToast();
-      ensureDebug();
+      // DebugパネルはデバッグモードON時のみ有効化
+      try { if (getBool(Keys.DebugAll)) ensureDebug(); } catch {}
       ensureJumpButton({
         isOpen: () => !!(cardApi?.isOpen && cardApi.isOpen()),
         openSmart: () => { try { (cardApi as any)?.openSmart?.(); } catch {} },
@@ -131,7 +131,8 @@ function setupVideoObserver() {
         // Edge-Snap監視開始
         startHybridCalibration();
         // seekable先行の観測プローブ開始（デバッグフラグ有効時）
-        try { startSeekableAnomalyProbe(video); } catch {}
+        // デバッグモードON時のみプローブを開始
+        try { if (getBool(Keys.DebugAll)) startSeekableAnomalyProbe(video); } catch {}
         
         console.log(`[Content:${frameTag()}] Hybrid calibration system started`);
       } catch (error) {

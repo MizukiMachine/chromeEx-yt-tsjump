@@ -117,7 +117,8 @@ function isAtEdge(video: HTMLVideoElement, bufSlackSec: number = 2): boolean {
  * デバッグログ出力（デバッグモード時のみ）
  */
 function debugLog(event: string, data: any = {}): void {
-  if (getBool('debug:hybridCalib')) {
+  // マスターデバッグ（debug:all）または個別（debug:hybridCalib）がONのときのみ出力
+  if (getBool(Keys.DebugAll) || getBool(Keys.DebugHybridCalib)) {
     // eslint-disable-next-line no-console
   console.debug(`[HybridCalib] ${event}`, {
       C: state.C,
