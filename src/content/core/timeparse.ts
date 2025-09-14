@@ -45,10 +45,35 @@ export function parseAndNormalize24h(input: string): ParseResult {
     const h = toInt(raw)!
     return normalize(h, 0, 0)
   }
+  // 3桁: ヒューリスティック適用
+  // - 通常は右側ゼロ埋めで HHmmss として扱う（例 "100" → "100000" → 10:00:00）
+  // - ただし先頭2桁が 24 以上になる場合は h:mm と解釈（例 "905" → 9:05:00）
+  if (raw.length === 3) {
+    const hh2 = toInt(raw.slice(0, 2))!
+    if (hh2 >= 24) {
+      const h = toInt(raw.slice(0, 1))!
+      const m = toInt(raw.slice(1, 3))!
+      return normalize(h, m, 0)
+    } else {
+      const padded = raw + '000' // 3→6桁化
+      const h = toInt(padded.slice(0, 2))!
+      const m = toInt(padded.slice(2, 4))!
+      const s = toInt(padded.slice(4, 6))!
+      return normalize(h, m, s)
+    }
+  }
   if (raw.length === 4) {
     const h = toInt(raw.slice(0, 2))!
     const m = toInt(raw.slice(2, 4))!
     return normalize(h, m, 0)
+  }
+  // 5桁: 右側ゼロ埋めで HHmmss として扱う（例 "12345" → "123450" → 12:34:50）
+  if (raw.length === 5) {
+    const padded = raw + '0'
+    const h = toInt(padded.slice(0, 2))!
+    const m = toInt(padded.slice(2, 4))!
+    const s = toInt(padded.slice(4, 6))!
+    return normalize(h, m, s)
   }
   if (raw.length === 6) {
     const h = toInt(raw.slice(0, 2))!
