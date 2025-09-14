@@ -208,14 +208,15 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
     }
   } catch {}
 
-  // 端の近接に応じてダイナミックに余裕を広げる（過剰に広げすぎない）
+  // 端の近接に応じてダイナミックに余裕を広げる（境界落ちを避けつつ過剰に広げすぎない）
   let dynamicSlack = state.config.edgeSlackSec;
   try {
     const be = getBufferedEnd(video);
     const lagToBuffered = Number.isFinite(be) ? ((be as number) - (video.currentTime || 0)) : NaN;
     if (Number.isFinite(lagToBuffered)) {
-      const need = Math.max(0, (lagToBuffered as number) - 1);
-      dynamicSlack = Math.min(30, Math.max(dynamicSlack, need));
+      // 以前は lag-1 だったが、境界で外れやすいため ceil に変更。上限も 45s に拡張。
+      const need = Math.ceil(lagToBuffered as number);
+      dynamicSlack = Math.min(45, Math.max(dynamicSlack, need));
     }
   } catch {}
 
