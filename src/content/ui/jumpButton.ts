@@ -30,10 +30,7 @@ function mountJumpButton(toggle: { isOpen: () => boolean; openSmart: () => void;
     } catch {}
   });
 
-  const afterNode = controls.querySelector('.ytp-subtitles-button') as HTMLElement | null;
-  const beforeNode = controls.querySelector('.ytp-settings-button') as HTMLElement | null;
-  if (afterNode && afterNode.nextSibling) controls.insertBefore(btn, afterNode.nextSibling);
-  else if (beforeNode) controls.insertBefore(btn, beforeNode);
-  else controls.appendChild(btn);
+  // Place at the far-left of the right controls for robustness
+  try { (controls as any).prepend(btn); }
+  catch { controls.appendChild(btn); }
 }
-
