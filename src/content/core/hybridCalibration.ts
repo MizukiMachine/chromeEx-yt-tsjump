@@ -10,6 +10,7 @@
 
 import { getSeekableStart, getSeekableEnd, seek } from './seek';
 import { getBool, getJSON, Keys } from '../store/local';
+import { isAdActive } from './adsense';
 
 // ===== 設定型定義 =====
 export interface HybridCalibConfig {
@@ -424,8 +425,9 @@ export function startCalibration(): void {
 
   // Edge-Snap監視開始
   const edgeMonitorId = window.setInterval(() => {
-    if (state.C === null) {
-      // まだキャリブされていない場合、Edge-Snapを試行
+    // Dが未確定の間もEdge-Snapを継続試行（C=null だけでなく D===0 も対象）
+    const needSnap = (state.C === null) || (state.D === 0);
+    if (needSnap) {
       if (executeEdgeSnap(state.video!)) {
         // 成功したらPLL開始
         const pllId = window.setInterval(executePllTick, state.config.pll.intervalMs);
