@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
 import { jumpToLocalTimeHybrid } from '../core/jump'
-import { getString, setString, getJSON, addTZMru, Keys } from '../store/local'
+import { getString, setString, getJSON, addTZMru, Keys, getBool, setBool } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
 import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds, clearLegacyStorage } from '../store/customButtons'
 import { seekBySeconds } from '../core/seek'
@@ -87,7 +87,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     }, [])
     // レイアウト状態：null = 未確定（非表示）, false = 6×1, true = 3×2
     const [isCompactLayout, setIsCompactLayout] = useState<boolean | null>(null)
-    const [showCustomButtons, setShowCustomButtons] = useState(false)
+    // 初期表示状態は localStorage から復元（既定は非表示）
+    const [showCustomButtons, setShowCustomButtons] = useState(() => getBool(Keys.CardCustomOpen))
     // ポータル用のボタン要素参照
     const buttonRefs = useRef<(HTMLElement | null)[]>([])
     // 補助状態やデバッグ表示は撤去
@@ -290,11 +291,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       setIsCompactLayout(needsCompact)
     }
     
-    // カスタムボタンの表示状態初期化 - 常に非表示から開始
-    useEffect(() => {
-      // 初期状態は必ず非表示（localStorageは使わない）
-      setShowCustomButtons(false)
-    }, [])
+    // 初期状態は localStorage の値を採用するため、強制非表示の初期化は廃止
 
     // カスタムボタン表示時の初期レイアウト決定（描画前に実行）
     useLayoutEffect(() => {
@@ -386,6 +383,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const toggleCustomButtons = () => {
       const newState = !showCustomButtons
       setShowCustomButtons(newState)
+      try { setBool(Keys.CardCustomOpen, newState) } catch {}
       
       // 編集モードも一緒に閉じる
       if (!newState && isEditMode) {
@@ -395,7 +393,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       }
       
       // useLayoutEffectが自動的にレイアウトを処理するため、手動チェック不要
-      // セッション内のみ保持（localStorageには保存しない）
+      // 状態は localStorage に保存済み
     }
 
     const saveEditButton = () => {

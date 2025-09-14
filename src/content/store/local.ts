@@ -11,6 +11,7 @@
 export const Keys = {
   CardOpen: 'card:open',
   CardPos: 'card:pos',
+  CardCustomOpen: 'card:custom:open',
   TzCurrent: 'tz:current',
   TzMru: 'tz:mru',
   Lang: 'lang',
