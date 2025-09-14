@@ -6,6 +6,9 @@ type State = {
   lang: 'en' | 'ja'
   tzEnabled: Set<string>
   allZones: string[]
+  showAll: boolean
+  filter: string
+  useDefaults: boolean
 }
 
 function App() {
@@ -13,7 +16,10 @@ function App() {
     debugAll: false,
     lang: 'en', 
     tzEnabled: new Set(DEFAULT_ENABLED_TZ),
-    allZones: []
+    allZones: [],
+    showAll: false,
+    filter: '',
+    useDefaults: true,
   })
   const [status, setStatus] = useState<string>('')
 
@@ -35,13 +41,17 @@ function App() {
         const normalize = (v: any) => v === true || v === '1' || v === 1
         const lang = (res?.['lang'] === 'ja' ? 'ja' : 'en') as 'en'|'ja'
         const enabledArr = Array.isArray(res?.['tz:enabled']) ? res!['tz:enabled'].filter((x: any) => typeof x === 'string') : []
-        const enabled = new Set<string>(enabledArr.length ? enabledArr : DEFAULT_ENABLED_TZ)
+        const enabledList = enabledArr.length ? enabledArr : DEFAULT_ENABLED_TZ
+        const enabled = new Set<string>(enabledList)
+        const defaultsSet = new Set(DEFAULT_ENABLED_TZ)
+        const sameAsDefault = enabledList.length === DEFAULT_ENABLED_TZ.length && enabledList.every(z => defaultsSet.has(z))
         setState(prev => ({
           ...prev,
           debugAll: normalize(res?.['debug:all']),
           lang,
           tzEnabled: enabled,
           allZones,
+          useDefaults: sameAsDefault,
         }))
       })
     } catch {}
@@ -76,6 +86,20 @@ function App() {
     setTimeout(() => setStatus(''), 1500)
   }
 
+  const visiblePool = state.showAll ? state.allZones : RECOMMENDED_TZ
+  const filterText = state.filter.trim().toLowerCase()
+  const filtered = (filterText
+    ? visiblePool.filter(z => z.toLowerCase().includes(filterText))
+    : visiblePool
+  )
+    .slice()
+    .sort((a,b) => a.localeCompare(b))
+
+  // bulk actions removed per UX decision; keep only filter + reset
+
+  const selectedCount = state.tzEnabled.size
+  const visibleCount = filtered.length
+
 
   return (
     <div>
@@ -84,6 +108,11 @@ function App() {
           <input type="checkbox" checked={state.debugAll} onChange={(e: any) => setState(s => ({ ...s, debugAll: !!e.currentTarget.checked }))} />
           Enable debug mode
         </label>
+        <div style={{ color:'#666', fontSize:'12px', marginTop:'4px' }}>
+          {state.lang === 'ja' 
+            ? 'デバッグログが表示され、ショートカットキーでデバッグパネルを表示できるようになります。'
+            : 'Shows debug logs and enables the debug panel shortcut.'}
+        </div>
       </div>
       <div class="row">
         <label>
@@ -95,18 +124,57 @@ function App() {
         </label>
       </div>
       <div class="row">
-        <div>Time zones to show</div>
-        <div style={{ maxHeight: '220px', overflow: 'auto', border: '1px solid #ccc', padding: '8px', borderRadius: '6px' }}>
-          {state.allZones.map(z => (
+        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
+          <div>Time zones to show</div>
+          <label style={{ display:'inline-flex', alignItems:'center', gap:'6px' }}>
+            <input type="checkbox" checked={state.showAll} onChange={(e:any)=> setState(s => ({ ...s, showAll: !!e.currentTarget.checked }))} />
+            Show all
+          </label>
+          <input 
+            type="text" 
+            placeholder="Filter..." 
+            value={state.filter}
+            onInput={(e:any)=> setState(s => ({ ...s, filter: e.currentTarget.value }))}
+            style={{ flex:'1', minWidth:'120px', padding:'4px 6px', border:'1px solid #ccc', borderRadius:'4px' }}
+          />
+          <span style={{ color:'#666', fontSize:'12px' }}>{selectedCount} selected • {visibleCount} visible</span>
+        </div>
+        {/* Reset helper placed where bulk actions were */}
+        <label style={{ display:'inline-flex', alignItems:'center', gap:'6px', margin: '0 0 6px 0' }}>
+          <input 
+            type="checkbox" 
+            checked={state.useDefaults}
+            onChange={(e:any) => {
+              const use = !!e.currentTarget.checked
+              setState(s => ({
+                ...s,
+                useDefaults: use,
+                tzEnabled: use ? new Set(DEFAULT_ENABLED_TZ) : new Set(s.tzEnabled)
+              }))
+            }}
+          />
+          {state.lang === 'ja' 
+            ? `初期設定タイムゾーン${DEFAULT_ENABLED_TZ.length}個に設定する`
+            : `Use default time zones (${DEFAULT_ENABLED_TZ.length})`}
+        </label>
+        <div style={{ maxHeight: '260px', overflow: 'auto', border: '1px solid #ccc', padding: '8px', borderRadius: '6px', opacity: state.useDefaults ? 0.6 : 1 }}>
+          {filtered.map(z => (
             <label style={{ display: 'inline-flex', alignItems: 'center', width: '50%', boxSizing: 'border-box', padding: '2px 4px' }}>
               <input 
                 type="checkbox" 
-                checked={state.tzEnabled.has(z)} 
+                checked={state.tzEnabled.has(z)}
+                disabled={state.useDefaults}
                 onChange={(e: any) => {
                   setState(s => {
                     const next = new Set(s.tzEnabled)
                     if (e.currentTarget.checked) next.add(z)
-                    else next.delete(z)
+                    else {
+                      next.delete(z)
+                      if (next.size === 0) {
+                        flash('At least one time zone must remain selected')
+                        return s
+                      }
+                    }
                     return { ...s, tzEnabled: next }
                   })
                 }}
@@ -130,6 +198,9 @@ function App() {
 const DEFAULT_ENABLED_TZ = [
   'Asia/Tokyo','Asia/Seoul','Europe/Amsterdam','Africa/Windhoek','Africa/Nairobi','America/New_York','America/Los_Angeles','Pacific/Honolulu','Europe/Copenhagen','Europe/London','Europe/Berlin','Europe/Rome','Australia/Sydney','UTC','Asia/Singapore'
 ]
+
+// Recommended subset for UI (reduced list)
+const RECOMMENDED_TZ = DEFAULT_ENABLED_TZ
 
 // Fallback list when Intl.supportedValuesOf is unavailable
 const COMMON_TZ = [
