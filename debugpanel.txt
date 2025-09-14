@@ -1,0 +1,7 @@
+TZ: Europe/Amsterdam
+Seekable: start=0.00 end=50395.00 endGuard=50392.00
+currentTime: 46795.24
+lead(seekable−buffered): 3585.00s, lagToBuffered: 14.76s
+C: — D: 0.00 locked: false consec: 0
+edge: false DVR: start=0.00 end=50395.00 guard=50392.00
+e: — L=20 HYS=2.5 N=5 α=0.02 rate=0.008333333333333333

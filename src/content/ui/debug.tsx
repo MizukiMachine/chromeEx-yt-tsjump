@@ -159,16 +159,27 @@ function renderNow(getVideo: GetVideo) {
 
 function renderHybrid(getVideo: GetVideo) {
   const v = getVideo()
-  const st = safe(getHybridState, { C: null, D: 0, locked: false, consec: 0, hasVideo: false, isAtEdge: false })
+  const st = safe(getHybridState, { C: null, D: 0, locked: false, consec: 0, hasVideo: false, isAtEdge: false, dfallback: null, dfallbackValid: false, dfallbackTtlSec: 0 })
   const cfg = safe(getHybridConfig, null as any)
   const start = v ? getSeekableStart(v) : 0
   const end = v ? getSeekableEnd(v) : 0
   const endGuard = Math.max(start, end - GUARD_SEC)
   // 誤差 e = (seekableEnd + D + C) - (now - L)
-  const e = (st.C != null && Number.isFinite(end)) ? ((end + st.D + (st.C as number)) - ((Date.now()/1000) - (cfg?.latencySec ?? 20))) : null
+  const dEff = (st.D !== 0) ? st.D : (st.dfallbackValid && Number.isFinite(st.dfallback as any) ? (st.dfallback as number) : 0)
+  const e = (st.C != null && Number.isFinite(end)) ? ((end + dEff + (st.C as number)) - ((Date.now()/1000) - (cfg?.latencySec ?? 20))) : null
   return (
     <div>
-      <div>C: {st.C != null ? (st.C as number).toFixed(2) : '—'} D: {st.D.toFixed(2)} locked: {String(st.locked)} consec: {st.consec}</div>
+      <div>
+        C: {st.C != null ? (st.C as number).toFixed(2) : '—'}
+        {' '}D: {st.D.toFixed(2)}
+        {st.dfallbackValid ? (
+          <>
+            {' '}Dfallback: {(st.dfallback as number).toFixed(2)} (ttl {st.dfallbackTtlSec}s)
+          </>
+        ) : null}
+        {' '}D_eff: {dEff.toFixed(2)}
+        {' '}locked: {String(st.locked)} consec: {st.consec}
+      </div>
       <div>edge: {String(st.isAtEdge)} DVR: start={start.toFixed(2)} end={end.toFixed(2)} guard={endGuard.toFixed(2)}</div>
       <div>e: {e != null ? e.toFixed(2) : '—'} L={cfg?.latencySec ?? 20} HYS={cfg?.pll?.hysSec ?? '—'} N={cfg?.pll?.consecN ?? '—'} α={cfg?.pll?.alpha ?? '—'} rate={cfg?.pll?.maxRatePerSec ?? '—'}</div>
     </div>

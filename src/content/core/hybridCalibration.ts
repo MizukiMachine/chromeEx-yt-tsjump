@@ -55,6 +55,10 @@ interface HybridState {
   config: HybridCalibConfig;   // 設定
   cleanups: Array<() => void>; // イベントクリーンアップ
   lastNudgeAt: number;         // 直近のnudge時刻(ms)
+  // ---- D_fallback（短期・限定用途） ----
+  dfallback: number | null;    // 暫定D（幅とPLLのみで使用、ジャンプ式やC再生成には使わない）
+  dfallbackUntil: number;      // 有効期限（ms）
+  leadSamples: number[];       // futureLeadSec の直近サンプル
 }
 
 // グローバル状態
@@ -68,6 +72,9 @@ let state: HybridState = {
   config: { ...DEFAULT_HYBRID_CONFIG },
   cleanups: [],
   lastNudgeAt: 0,
+  dfallback: null,
+  dfallbackUntil: 0,
+  leadSamples: [],
 };
 
 // ===== ヘルパー関数 =====
@@ -291,8 +298,53 @@ function executePllTick(): void {
     return;
   }
 
+  // ---- D_fallback 採否の評価（短期・限定用途） ----
+  try {
+    const be = getBufferedEnd(state.video);
+    const futureLead = (Number.isFinite(seekableEnd) && Number.isFinite(be)) ? ((seekableEnd as number) - (be as number)) : NaN;
+    // D が既に確定していれば D_fallback は不要
+    if (state.D !== 0) {
+      if (state.dfallback != null) {
+        debugLog('dfallback-clear', { reason: 'D-confirmed', dfallback: state.dfallback });
+        try { console.log('[DFallback:CLEAR]', { reason: 'D-confirmed', dfallback: state.dfallback }); } catch {}
+      }
+      state.dfallback = null; state.dfallbackUntil = 0; state.leadSamples = [];
+    } else if (Number.isFinite(futureLead)) {
+      // 観測帯（約50〜70分先行相当: 3000..4200s）に入っている連続サンプルを集める
+      const inRange = (futureLead as number) >= 3000 && (futureLead as number) <= 4200;
+      if (inRange) {
+        state.leadSamples.push(futureLead as number);
+        if (state.leadSamples.length > 5) state.leadSamples.shift();
+      } else {
+        // 外れたらリセット（安定してから再評価）
+        state.leadSamples = [];
+      }
+      const enough = state.leadSamples.length >= 5;
+      const nowMs = Date.now();
+      const expired = state.dfallback != null && nowMs > state.dfallbackUntil;
+      if (expired) {
+        debugLog('dfallback-clear', { reason: 'ttl-expired', dfallback: state.dfallback });
+        try { console.log('[DFallback:CLEAR]', { reason: 'ttl-expired', dfallback: state.dfallback }); } catch {}
+        state.dfallback = null; state.dfallbackUntil = 0;
+      }
+      if (state.dfallback == null && enough) {
+        // 中央値でロバストに推定し、負符号でDへ（D=buffered−seekable）
+        const sorted = [...state.leadSamples].sort((a,b)=>a-b);
+        const mid = Math.floor(sorted.length/2);
+        const med = sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+        const df = -med; // D は負方向
+        state.dfallback = df;
+        state.dfallbackUntil = nowMs + 3 * 60 * 1000; // 3分TTL
+        debugLog('dfallback-adopt', { dfallback: state.dfallback, samples: state.leadSamples });
+        try { console.log('[DFallback:ADOPT]', { dfallback: state.dfallback, samples: state.leadSamples }); } catch {}
+      }
+    }
+  } catch {}
+
   // 誤差計算: e = (seekableEnd + D + C) - (now - L)
-  const e = (seekableEnd + state.D + state.C!) - (now() - state.config.latencySec);
+  const nowEpoch = now();
+  const dEff = state.D !== 0 ? state.D : ((state.dfallback != null && Date.now() <= state.dfallbackUntil) ? state.dfallback as number : 0);
+  const e = (seekableEnd + dEff + state.C!) - (nowEpoch - state.config.latencySec);
   
   // 外れ値チェック
   if (Math.abs(e) > state.config.pll.outlierESec) {
@@ -332,6 +384,7 @@ function executePllTick(): void {
     delta,
     targetC,
     seekableEnd,
+    dEff,
   });
 }
 
@@ -576,7 +629,13 @@ export function getHybridState(): Readonly<{
   consec: number;
   hasVideo: boolean;
   isAtEdge: boolean;
+  dfallback: number | null;
+  dfallbackValid: boolean;
+  dfallbackTtlSec: number;
 }> {
+  const nowMs = Date.now();
+  const valid = state.dfallback != null && nowMs <= state.dfallbackUntil;
+  const ttlSec = valid ? Math.max(0, Math.ceil((state.dfallbackUntil - nowMs) / 1000)) : 0;
   return {
     C: state.C,
     D: state.D,
@@ -584,6 +643,9 @@ export function getHybridState(): Readonly<{
     consec: state.consec,
     hasVideo: state.video !== null,
     isAtEdge: state.video ? isAtEdge(state.video, state.config.edgeSlackSec) : false,
+    dfallback: valid ? (state.dfallback as number) : null,
+    dfallbackValid: valid,
+    dfallbackTtlSec: ttlSec,
   };
 }
 
@@ -621,9 +683,14 @@ export function resolveEpochFromCandidates(epochCandidates: number[], CsnapArg?:
 
   // Edge-Snap 測定済みなら D=bufferedEnd−seekableEnd を幅に反映（右端先行の補正）
   let width = widthSeekable;
+  let dUse = 0;
   if (Number.isFinite(state.D) && state.D !== 0) {
-    const corrected = widthSeekable + state.D; // D は負方向（seekable が未来）なら幅を縮める
-    // 異常値はフォールバック
+    dUse = state.D;
+  } else if (state.dfallback != null && Date.now() <= state.dfallbackUntil) {
+    dUse = state.dfallback as number;
+  }
+  if (dUse !== 0) {
+    const corrected = widthSeekable + dUse; // D は負方向（seekable が未来）なら幅を縮める
     if (corrected > 5) {
       width = corrected;
     }

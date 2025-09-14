@@ -54,7 +54,7 @@ export function startSeekableAnomalyProbe(video: HTMLVideoElement): void {
       const bufEnd = getBufferedEndSafe(v);
       const cur = safe(() => v.currentTime, NaN);
 
-      const st = safe(() => getHybridState(), { C: null, D: 0, locked: false, consec: 0, hasVideo: false, isAtEdge: false });
+      const st = safe(() => getHybridState(), { C: null, D: 0, locked: false, consec: 0, hasVideo: false, isAtEdge: false, dfallback: null, dfallbackValid: false, dfallbackTtlSec: 0 });
       const C_h = Number.isFinite(st.C as any) ? (st.C as number) : NaN;
       const D_h = Number.isFinite(st.D as any) ? (st.D as number) : 0;
 
