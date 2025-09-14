@@ -18,7 +18,6 @@ import { t } from './utils/i18n';
 import { mountDebug, type DebugAPI } from './ui/debug';
 import { logStatus, logAd } from './events/emit';
 import { ensureShadowRoot } from './services/shadowRoot';
-import { ensureShortcutHelp } from './ui/shortcutHelp';
 import { ensureJumpButton } from './ui/jumpButton';
 import { setupURLObserver } from './services/urlWatcher';
 import { setupCommandRouting } from './bridge/commandsRouter';
@@ -98,7 +97,6 @@ function setupVideoObserver() {
       ensureShadowRoot();
       ensureCard();
       ensureToast();
-      ensureShortcutHelp();
       ensureDebug();
       ensureJumpButton({
         isOpen: () => !!(cardApi?.isOpen && cardApi.isOpen()),
@@ -208,7 +206,7 @@ window.addEventListener('unload', () => {
 
 export {};
 
-// ensureShortcutHelp moved to ui/shortcutHelp.ts
+// shortcuts help popup has been removed
 
 // Cardの設置とトグルショートカット
 function ensureCard() {

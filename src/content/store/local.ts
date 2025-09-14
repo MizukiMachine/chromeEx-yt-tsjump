@@ -20,7 +20,6 @@ export const Keys = {
   DebugSeekableProbe: 'debug:seekableProbe',
   DebugJump: 'debug:jump',
   QALog: 'qa:log',
-  ShortcutsHelpDismissed: 'shortcutsHelpDismissed',
   CfgHybrid: 'cfg:hybrid',
 } as const;
 
