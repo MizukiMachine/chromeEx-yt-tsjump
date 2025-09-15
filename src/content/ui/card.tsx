@@ -284,7 +284,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       const r = jumpToLocalTimeHybrid(v, input.trim(), zone)
       if (!r.ok) {
         console.warn('[Card] Hybrid jump failed:', r.reason)
-        showToast(r.reason || 'Hybrid system not ready. Try moving to live edge.', 'warn')
+        showToast(r.reason || t('toast.hybrid_not_ready'), 'warn')
       }
       if (r.ok) {
         // 成功したら入力欄をクリア

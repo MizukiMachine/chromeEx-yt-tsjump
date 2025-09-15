@@ -82,8 +82,8 @@ export function useCustomButtonsEditor({
     const labelValidation = validateLabel(editingValues.label)
     const secondsValue = parseInt(editingValues.seconds) || 0
     const secondsValidation = validateSeconds(secondsValue)
-    if (!labelValidation.valid) { showToast(labelValidation.error || 'Invalid label', 'warn'); return }
-    if (!secondsValidation.valid) { showToast(secondsValidation.error || 'Invalid seconds', 'warn'); return }
+    if (!labelValidation.valid) { showToast(labelValidation.error || t('toast.invalid_label'), 'warn'); return }
+    if (!secondsValidation.valid) { showToast(secondsValidation.error || t('toast.invalid_seconds'), 'warn'); return }
 
     loadCustomButtonsAsync().then(config => {
       const newButtons = [...config.buttons]
@@ -115,12 +115,12 @@ export function useCustomButtonsEditor({
     if (!isEditMode) return
     loadCustomButtonsAsync().then(config => {
       const firstEmptyIndex = config.buttons.findIndex(btn => !btn.enabled || btn.label.trim() === '')
-      if (firstEmptyIndex === -1) { showToast('Maximum 6 buttons allowed', 'warn'); return }
+      if (firstEmptyIndex === -1) { showToast(t('toast.max_buttons'), 'warn'); return }
       // 既存の仕様に合わせ、表示配列の末尾に対する編集開始相当の挙動
       setEditingButton(customButtons.length)
       setEditingValues({ label: '', seconds: '60' })
     }).catch(() => {
-      showToast('Failed to add new button', 'warn')
+      showToast(t('toast.add_button_failed'), 'warn')
     })
   }
 

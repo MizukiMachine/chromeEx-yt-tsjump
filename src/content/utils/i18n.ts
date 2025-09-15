@@ -38,6 +38,11 @@ interface I18nDict {
     button_updated: string
     button_not_found: string
     failed_update: string
+    max_buttons?: string
+    add_button_failed?: string
+    hybrid_not_ready?: string
+    invalid_label?: string
+    invalid_seconds?: string
   }
   // Debug panel
   debug: {
@@ -100,6 +105,11 @@ const dict: Record<Lang, I18nDict> = {
       button_updated: 'Button updated!',
       button_not_found: 'Button not found!',
       failed_update: 'Failed to update button',
+      max_buttons: 'Maximum 6 buttons allowed',
+      add_button_failed: 'Failed to add new button',
+      hybrid_not_ready: 'Hybrid system not ready. Try moving to live edge.',
+      invalid_label: 'Invalid label',
+      invalid_seconds: 'Invalid seconds',
     },
     debug: {
       search_ph: 'Search...',
@@ -158,6 +168,11 @@ const dict: Record<Lang, I18nDict> = {
       button_updated: 'ボタンを更新しました',
       button_not_found: 'ボタンが見つかりません',
       failed_update: 'ボタンの更新に失敗しました',
+      max_buttons: 'ボタンは最大6個までです',
+      add_button_failed: 'ボタンの追加に失敗しました',
+      hybrid_not_ready: 'ハイブリッドシステムの準備が完了していません。ライブ端へ寄せてからお試しください。',
+      invalid_label: 'ラベルが不正です',
+      invalid_seconds: '秒数が不正です',
     },
     debug: {
       search_ph: '検索…',
