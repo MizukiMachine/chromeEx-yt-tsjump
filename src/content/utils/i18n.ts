@@ -43,6 +43,9 @@ interface I18nDict {
     hybrid_not_ready?: string
     invalid_label?: string
     invalid_seconds?: string
+    invalid_label_detail?: string
+    invalid_seconds_integer?: string
+    invalid_seconds_range?: string
   }
   // Debug panel
   debug: {
@@ -110,6 +113,9 @@ const dict: Record<Lang, I18nDict> = {
       hybrid_not_ready: 'Hybrid system not ready. Try moving to live edge.',
       invalid_label: 'Invalid label',
       invalid_seconds: 'Invalid seconds',
+      invalid_label_detail: 'Only A–Z, 0–9, +, - allowed (max 12 chars)',
+      invalid_seconds_integer: 'Enter an integer value',
+      invalid_seconds_range: 'Must be within 24 hours (±86400 seconds)',
     },
     debug: {
       search_ph: 'Search...',
@@ -173,6 +179,9 @@ const dict: Record<Lang, I18nDict> = {
       hybrid_not_ready: 'ハイブリッドシステムの準備が完了していません。ライブ端へ寄せてからお試しください。',
       invalid_label: 'ラベルが不正です',
       invalid_seconds: '秒数が不正です',
+      invalid_label_detail: '英数字と記号(+,-)のみ、最大12文字まで設定できます',
+      invalid_seconds_integer: '整数値を入力してください',
+      invalid_seconds_range: '24時間（±86400秒）以内で設定してください',
     },
     debug: {
       search_ph: '検索…',

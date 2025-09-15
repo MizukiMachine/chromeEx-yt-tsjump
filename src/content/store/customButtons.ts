@@ -2,6 +2,8 @@
  * カスタムシークボタン設定管理
  */
 
+import { t } from '../utils/i18n'
+
 export interface CustomButton {
   label: string;
   seconds: number;
@@ -157,7 +159,7 @@ export function validateLabel(label: string): { valid: boolean; error?: string }
   if (!labelPattern.test(label)) {
     return {
       valid: false,
-      error: 'アルファベットと数字、記号(+,-)のみ、最大12文字まで設定できます'
+      error: t('toast.invalid_label_detail')
     };
   }
   
@@ -169,11 +171,11 @@ export function validateLabel(label: string): { valid: boolean; error?: string }
  */
 export function validateSeconds(seconds: number): { valid: boolean; error?: string } {
   if (!Number.isInteger(seconds)) {
-    return { valid: false, error: '整数値を入力してください' };
+    return { valid: false, error: t('toast.invalid_seconds_integer') };
   }
   
   if (Math.abs(seconds) > 86400) { // 24時間以内
-    return { valid: false, error: '24時間（86400秒）以内で設定してください' };
+    return { valid: false, error: t('toast.invalid_seconds_range') };
   }
   
   return { valid: true };
