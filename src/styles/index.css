@@ -31,7 +31,8 @@
 
 #ytp-jump .ytp-jump__label {
   display: block;
-  font-size: 16px;
+  /* 大きい画面では16px、小さい画面では12pxまで自動で少し小さくする */
+  font-size: clamp(12px, 1.8vw, 16px);
   line-height: 1;
   font-weight: 500;
   letter-spacing: .02em;
