@@ -23,8 +23,8 @@ export function useDragHandling(
       if (e.button !== 0) return
       const target = e.target as HTMLElement
       // 入力系やボタン、リンク、TZメニュー内ではドラッグ開始しない
-      // さらにヘルプテキスト内（.help-text）ではテキスト選択を優先してドラッグを無効化
-      const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu, .help-text'
+      // ヘルプ表示はボタンのみのため、.help-text 内でもドラッグ可能とする
+      const interactiveSel = 'input, textarea, select, button, a, [contenteditable="true"], .yt-dd-menu'
       if (target && (target.closest(interactiveSel))) return
       
       draggingRef.current = true

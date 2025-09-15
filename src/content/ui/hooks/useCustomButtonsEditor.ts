@@ -83,6 +83,7 @@ export function useCustomButtonsEditor({
     const labelValidation = validateLabel(normalizedLabel)
     const secondsValue = parseInt(editingValues.seconds) || 0
     const secondsValidation = validateSeconds(secondsValue)
+    // バリデーションエラー時はスナックバーで通知
     if (!labelValidation.valid) { showToast(labelValidation.error || t('toast.invalid_label'), 'warn'); return }
     if (!secondsValidation.valid) { showToast(secondsValidation.error || t('toast.invalid_seconds'), 'warn'); return }
 
