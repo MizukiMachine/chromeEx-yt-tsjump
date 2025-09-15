@@ -15,6 +15,7 @@ import { DEFAULT_HYBRID_CONFIG, type HybridCalibConfig } from './hybrid/config';
 import { now, getBufferedEnd, isAtEdge } from './hybrid/utils';
 import { attachPlaybackLockEvents as attachPlaybackLockEventsExt } from './hybrid/lock';
 import { addTimer as addTimerToList, clearAllTimers as clearAllTimersFromList } from './hybrid/timer';
+import { executePllTick as executePllTickExt } from './hybrid/pll';
 
 // ===== 設定型定義 =====
 // 設定型とデフォルトは ./hybrid/config に切り出し
@@ -180,107 +181,7 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
  * Live-PLL tick（1Hz程度で実行）
  * seekableEndを観測し、誤差に応じてCを超低速で微調整
  */
-function executePllTick(): void {
-  if (!state.video || state.locked || !Number.isFinite(state.C)) {
-    if (state.locked) debugLog('pll-skip', { reason: 'locked' });
-    return;
-  }
-
-  const seekableEnd = getSeekableEnd(state.video);
-  if (!Number.isFinite(seekableEnd)) {
-    debugLog('pll-skip', { reason: 'invalid-seekable' });
-    return;
-  }
-
-  // ---- D_fallback 採否の評価（短期・限定用途） ----
-  try {
-    const be = getBufferedEnd(state.video);
-    const futureLead = (Number.isFinite(seekableEnd) && Number.isFinite(be)) ? ((seekableEnd as number) - (be as number)) : NaN;
-    // D が既に確定していれば D_fallback は不要
-    if (state.D !== 0) {
-      if (state.dfallback != null) {
-        debugLog('dfallback-clear', { reason: 'D-confirmed', dfallback: state.dfallback });
-        try { console.log('[DFallback:CLEAR]', { reason: 'D-confirmed', dfallback: state.dfallback }); } catch {}
-      }
-      state.dfallback = null; state.dfallbackUntil = 0; state.leadSamples = [];
-    } else if (Number.isFinite(futureLead)) {
-      // 観測帯（約50〜70分先行相当: 3000..4200s）に入っている連続サンプルを集める
-      const inRange = (futureLead as number) >= 3000 && (futureLead as number) <= 4200;
-      if (inRange) {
-        state.leadSamples.push(futureLead as number);
-        if (state.leadSamples.length > 5) state.leadSamples.shift();
-      } else {
-        // 外れたらリセット（安定してから再評価）
-        state.leadSamples = [];
-      }
-      const enough = state.leadSamples.length >= 5;
-      const nowMs = Date.now();
-      const expired = state.dfallback != null && nowMs > state.dfallbackUntil;
-      if (expired) {
-        debugLog('dfallback-clear', { reason: 'ttl-expired', dfallback: state.dfallback });
-        try { console.log('[DFallback:CLEAR]', { reason: 'ttl-expired', dfallback: state.dfallback }); } catch {}
-        state.dfallback = null; state.dfallbackUntil = 0;
-      }
-      if (state.dfallback == null && enough) {
-        // 中央値でロバストに推定し、負符号でDへ（D=buffered−seekable）
-        const sorted = [...state.leadSamples].sort((a,b)=>a-b);
-        const mid = Math.floor(sorted.length/2);
-        const med = sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
-        const df = -med; // D は負方向
-        state.dfallback = df;
-        state.dfallbackUntil = nowMs + 3 * 60 * 1000; // 3分TTL
-        debugLog('dfallback-adopt', { dfallback: state.dfallback, samples: state.leadSamples });
-        try { console.log('[DFallback:ADOPT]', { dfallback: state.dfallback, samples: state.leadSamples }); } catch {}
-      }
-    }
-  } catch {}
-
-  // 誤差計算: e = (seekableEnd + D + C) - (now - L)
-  const nowEpoch = now();
-  const dEff = state.D !== 0 ? state.D : ((state.dfallback != null && Date.now() <= state.dfallbackUntil) ? state.dfallback as number : 0);
-  const e = (seekableEnd + dEff + state.C!) - (nowEpoch - state.config.latencySec);
-  
-  // 外れ値チェック
-  if (Math.abs(e) > state.config.pll.outlierESec) {
-    state.consec = 0;
-    debugLog('pll-outlier', { e, threshold: state.config.pll.outlierESec });
-    return;
-  }
-
-  // ヒステリシス（小さな誤差は無視）
-  if (Math.abs(e) <= state.config.pll.hysSec) {
-    state.consec = 0;
-    return;
-  }
-
-  // 連続検出カウント
-  state.consec++;
-  if (state.consec < state.config.pll.consecN) {
-    debugLog('pll-accumulating', { e, consec: state.consec, needed: state.config.pll.consecN });
-    return;
-  }
-
-  // PLL補正実行
-  state.consec = 0;
-  const currentC = state.C!; // この時点で必ず数値
-  const targetC = currentC - state.config.pll.alpha * e;
-  const delta = Math.max(
-    -state.config.pll.maxRatePerSec,
-    Math.min(state.config.pll.maxRatePerSec, targetC - currentC)
-  );
-  const prevC = currentC;
-  state.C = currentC + delta;
-
-  debugLog('pll-adjust', {
-    e,
-    prevC,
-    newC: state.C,
-    delta,
-    targetC,
-    seekableEnd,
-    dEff,
-  });
-}
+// executePllTick は ./hybrid/pll に移動
 
 // ===== 公開API =====
 
@@ -384,7 +285,21 @@ export function startCalibration(): void {
     if (needSnap) {
       if (executeEdgeSnap(state.video!)) {
         // 成功したらPLL開始
-        const pllId = window.setInterval(executePllTick, state.config.pll.intervalMs);
+        const pllId = window.setInterval(() => executePllTickExt({
+          getVideo: () => state.video,
+          isLocked: () => state.locked,
+          getConfig: () => state.config,
+          getC: () => state.C,
+          setC: (v) => { state.C = v },
+          getD: () => state.D,
+          getConsec: () => state.consec,
+          setConsec: (n) => { state.consec = n },
+          getDfallback: () => ({ value: state.dfallback, until: state.dfallbackUntil }),
+          setDfallback: (val, until) => { state.dfallback = val; state.dfallbackUntil = until },
+          getLeadSamples: () => state.leadSamples,
+          setLeadSamples: (a) => { state.leadSamples = a },
+          debug: (ev, data) => debugLog(ev, data),
+        }), state.config.pll.intervalMs);
         addTimerToList(state.timers, pllId);
         debugLog('pll-started');
         try { console.log('[HybridCalib] pll-started'); } catch {}
