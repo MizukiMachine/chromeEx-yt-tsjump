@@ -12,12 +12,14 @@ export function initToast(root: ShadowRoot): void {
     container.id = 'yt-toasts';
     Object.assign(container.style, {
       position: 'fixed',
-      right: '16px',
+      left: '50%',
       bottom: '16px',
+      transform: 'translateX(-50%)',
       zIndex: '2147483647',
       display: 'flex',
       flexDirection: 'column',
       gap: '8px',
+      alignItems: 'center',
       pointerEvents: 'none',
     } as CSSStyleDeclaration);
     root.appendChild(container);
@@ -56,8 +58,8 @@ export function showToast(text: string, kind: Kind = 'info', durationMs = 3000):
         fb = document.createElement('div');
         fb.id = 'yt-toasts-fallback';
         Object.assign(fb.style, {
-          position: 'fixed', right: '16px', bottom: '16px', zIndex: '2147483647',
-          display: 'flex', flexDirection: 'column', gap: '8px', pointerEvents: 'none',
+          position: 'fixed', left: '50%', bottom: '16px', transform: 'translateX(-50%)', zIndex: '2147483647',
+          display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', pointerEvents: 'none',
         } as CSSStyleDeclaration);
         document.body.appendChild(fb);
         // style
@@ -88,6 +90,8 @@ export function showToast(text: string, kind: Kind = 'info', durationMs = 3000):
   const el = document.createElement('div');
   el.className = `yt-toast ${kind}`;
   el.textContent = text;
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
   el.onclick = () => removeNow();
   container!.appendChild(el);
   requestAnimationFrame(() => el.classList.add('show'));
