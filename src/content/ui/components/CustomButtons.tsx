@@ -30,6 +30,7 @@ export function CustomButtons(props: {
           onClick={() => onClick(displayIndex)}
           onMouseDown={(e: any) => e.stopPropagation()}
           title={titleFor(button, isEditMode)}
+          aria-label={button.label}
         >
           <div
             ref={el => setButtonRef && setButtonRef(displayIndex, el)}

@@ -79,7 +79,8 @@ export function useCustomButtonsEditor({
 
   const saveEditButton = () => {
     if (editingButton === null) return
-    const labelValidation = validateLabel(editingValues.label)
+    const normalizedLabel = safeNormalize(editingValues.label)
+    const labelValidation = validateLabel(normalizedLabel)
     const secondsValue = parseInt(editingValues.seconds) || 0
     const secondsValidation = validateSeconds(secondsValue)
     if (!labelValidation.valid) { showToast(labelValidation.error || t('toast.invalid_label'), 'warn'); return }
@@ -89,9 +90,9 @@ export function useCustomButtonsEditor({
       const newButtons = [...config.buttons]
       if (editingButton >= 0 && editingButton < newButtons.length) {
         newButtons[editingButton] = {
-          label: editingValues.label,
+          label: normalizedLabel,
           seconds: secondsValue,
-          enabled: editingValues.label.trim() !== ''
+          enabled: /\S/u.test(normalizedLabel)
         }
         saveCustomButtons({ buttons: newButtons })
         setCustomButtons(getEnabledButtons({ buttons: newButtons }))
@@ -146,6 +147,10 @@ export function useCustomButtonsEditor({
     addNewButton,
     resetEditing,
   }
+}
+
+function safeNormalize(s: string): string {
+  try { return s.normalize('NFC') } catch { return s }
 }
 
 export default useCustomButtonsEditor
