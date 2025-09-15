@@ -116,6 +116,13 @@ function App() {
 
   return (
     <div>
+      {/* Help & Tips at top */}
+      <div class="row" style={{ marginTop: '6px' }}>
+        <h2 style={{ margin: '8px 0' }}>{t('options.help_title')}</h2>
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#333' }}>
+          {t('options.help_text')}
+        </div>
+      </div>
       <div class="row">
         <label>
           <input type="checkbox" checked={state.debugAll} onChange={(e: any) => setState(s => ({ ...s, debugAll: !!e.currentTarget.checked }))} />
@@ -187,7 +194,7 @@ function App() {
                     else {
                       next.delete(z)
                       if (next.size === 0) {
-                        flash(t('err_must_remain'))
+                        flash(t('options.err_must_remain'))
                         return s
                       }
                     }

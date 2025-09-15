@@ -8,6 +8,9 @@ interface I18nDict {
     jump_button: string
     placeholder_time: string
     help_text: string
+    open_options: string
+    options_hint: string
+    help_redirect: string
   }
   // Edit popup
   popup: {
@@ -71,6 +74,8 @@ interface I18nDict {
     reset_done: string
     err_select_one: string
     err_must_remain: string
+    help_title: string
+    help_text: string
   }
 }
 
@@ -81,6 +86,9 @@ const dict: Record<Lang, I18nDict> = {
       jump_button: 'Jump',
       placeholder_time: 'HH:mm:ss or HHmmss',
       help_text: '・ Toggle Jump panel: Alt+Shift+J\n・ Customize shortcuts: chrome://extensions/shortcuts\n• If timestamp jump accuracy is significantly off, please reload the page.',
+      open_options: 'Open Options',
+      options_hint: 'More help and tips are in Options.',
+      help_redirect: 'The operation guide and time zone settings are available in Options.',
     },
     popup: {
       label_with_max: 'Label (A-Z, 0-9, +, -, 12max)',
@@ -139,6 +147,16 @@ const dict: Record<Lang, I18nDict> = {
       reset_done: 'Reset to defaults',
       err_select_one: 'Select at least one time zone',
       err_must_remain: 'At least one time zone must remain selected',
+      help_title: 'Help & Tips',
+      help_text: [
+        '• Toggle Jump panel: Alt+Shift+J',
+        '• Toggle Debug panel: Alt+Shift+L (debug mode)',
+        '• Customize shortcuts: chrome://extensions/shortcuts',
+        '• For best accuracy, move to the live edge when possible.',
+        '• If timestamp jump accuracy gets significantly off, please reload the page.',
+        '• Press Esc while the time input is focused to remove focus.',
+        '• Edit custom buttons: click the ✎ icon on the card.'
+      ].join('\n'),
     },
   },
   ja: {
@@ -147,6 +165,9 @@ const dict: Record<Lang, I18nDict> = {
       jump_button: 'Jump',
       placeholder_time: 'HH:mm:ss または HHmmss',
       help_text: '・ [ Alt+Shift+J ] 操作パネルの表示/非表示\n・ [ショートカットキー登録] chrome://extensions/shortcuts\n・時刻ジャンプの精度が大きくズレたら、ページを再読み込みしてください',
+      open_options: 'オプションを開く',
+      options_hint: '詳しいヘルプやTipsはオプションにあります。',
+      help_redirect: '操作ガイドやタイムゾーン設定',
     },
     popup: {
       label_with_max: '表示ラベル（英数字, +, -, 12文字まで）',
@@ -205,6 +226,16 @@ const dict: Record<Lang, I18nDict> = {
       reset_done: '初期設定に戻しました',
       err_select_one: '最低1件は選択してください',
       err_must_remain: '最低1件は選択されたままにしてください',
+      help_title: 'ヘルプ＆Tips',
+      help_text: [
+        '・ 操作パネルの表示/非表示: Alt+Shift+J',
+        '・ デバッグパネルの表示/非表示: Alt+Shift+L（デバッグモード時）',
+        '・ ショートカットの変更: chrome://extensions/shortcuts',
+        '・ 精度を高めるには可能ならライブ端に寄せてください。',
+        '・ 時刻ジャンプの精度が大きくずれたら、ページを再読み込みしてください。',
+        '・ 時刻入力にフォーカスがあるときは Esc キーでフォーカスを解除できます。',
+        '・ カスタムボタンを編集: カードの ✎ アイコンをクリック。'
+      ].join('\n'),
     },
   },
 }

@@ -40,6 +40,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try { sendResponse({ received: true }); } catch {}
     return true;
   }
+  if (message && message.type === 'OPEN_OPTIONS') {
+    (async () => {
+      try {
+        if (chrome.runtime.openOptionsPage) {
+          await chrome.runtime.openOptionsPage();
+        } else {
+          const url = chrome.runtime.getURL('public/options.html');
+          await chrome.tabs.create({ url });
+        }
+        try { sendResponse({ received: true }); } catch {}
+      } catch (e) {
+        console.error('[Background] Failed to open options:', e);
+        try { sendResponse({ received: false, error: (e as any)?.message || String(e) }); } catch {}
+      }
+    })();
+    return true;
+  }
   return false;
 });
 

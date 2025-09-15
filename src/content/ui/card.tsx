@@ -273,6 +273,28 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     // ドラッグは共通フックで処理
     useDragHandling(cardRef, posRef, setPos, savePos)
 
+    // オプションページを開く
+    function openOptions() {
+      try {
+        const anyChrome: any = (globalThis as any).chrome
+        // Prefer asking background to open options (more reliable across contexts)
+        anyChrome?.runtime?.sendMessage?.({ type: 'OPEN_OPTIONS' }, (res: any) => {
+          const ok = res && res.received
+          if (!ok) {
+            try {
+              if (anyChrome?.runtime?.openOptionsPage) { anyChrome.runtime.openOptionsPage(); return }
+              if (anyChrome?.runtime?.getURL) {
+                const url = anyChrome.runtime.getURL('public/options.html')
+                window.open(url, '_blank'); return
+              }
+            } catch {}
+          }
+        })
+      } catch (e) {
+        try { showToast('Failed to open Options', 'warn') } catch {}
+      }
+    }
+
     // 提交
     async function onSubmit(e?: Event) {
       e?.preventDefault()
@@ -526,11 +548,13 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           </div>
         </div>
         {showHelp && (
-          <div class="help-text" style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5, cursor: 'text', userSelect: 'text', WebkitUserSelect: 'text' }}>
-            {t('ui.help_text').split('\n').map((line) => (<>
-              {line}
-              <br/>
-            </>))}
+          <div class="help-text" style={{ fontSize: '11px', color: '#bbb', marginBottom: '6px', lineHeight: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              class="btn"
+              onClick={(e: any) => { e.stopPropagation(); openOptions(); }}
+              style={{ background:'#212121', color:'#ddd', border:'1px solid #444', borderRadius:'6px', padding:'4px 8px', cursor:'pointer' }}
+              title={t('ui.open_options')}
+            >{t('ui.open_options')}</button>
           </div>
         )}
         <form onSubmit={onSubmit as any} style={{ position: 'relative' }}>
