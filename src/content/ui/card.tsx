@@ -3,15 +3,16 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
 import { jumpToLocalTimeHybrid } from '../core/jump'
-import { getString, setString, getJSON, addTZMru, Keys, getBool, setBool } from '../store/local'
+import { getString, setString, getJSON, addTZMru, Keys, getBool } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
-import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, saveCustomButtons, validateLabel, validateSeconds, clearLegacyStorage } from '../store/customButtons'
+import { loadCustomButtons, loadCustomButtonsAsync, getEnabledButtons, clearLegacyStorage } from '../store/customButtons'
 import { seekBySeconds } from '../core/seek'
 import { isAdActive } from '../core/adsense'
 import { showToast } from './toast'
 import { useCardPosition } from './hooks/useCardPosition'
 import { useDragHandling } from './hooks/useDragHandling'
 import useCustomButtonsLayout from './hooks/useCustomButtonsLayout'
+import useCustomButtonsEditor from './hooks/useCustomButtonsEditor'
 // シンプル化のため、startEpoch検知やレイテンシ手動キャリブは撤去
 
 // ストレージキー
@@ -71,8 +72,6 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     // カスタムボタン設定
     const [customButtons, setCustomButtons] = useState(() => getEnabledButtons(loadCustomButtons()))
     const [isEditMode, setIsEditMode] = useState(false)
-    const [editingButton, setEditingButton] = useState<number | null>(null)
-    const [editingValues, setEditingValues] = useState<{ label: string; seconds: string }>({ label: '', seconds: '' })
     
     // カスタムボタン設定の非同期読み込み
     useEffect(() => {
@@ -92,6 +91,26 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     const isCompactLayout = useCustomButtonsLayout(cardRef, showCustomButtons, [customButtons], isEditMode)
     // ポータル用のボタン要素参照
     const buttonRefs = useRef<(HTMLElement | null)[]>([])
+    // 編集ロジック（保存/追加/キャンセル）を専用フックへ委譲
+    const {
+      editingButton,
+      editingValues,
+      setEditingValues,
+      startEditButton,
+      toggleEditMode,
+      toggleCustomButtons,
+      saveEditButton,
+      cancelEditButton,
+      addNewButton,
+      resetEditing,
+    } = useCustomButtonsEditor({
+      isEditMode,
+      setIsEditMode,
+      customButtons,
+      setCustomButtons,
+      showCustomButtons,
+      setShowCustomButtons,
+    })
     // 補助状態やデバッグ表示は撤去
 
     // MRUゾーンの一覧を用意
@@ -164,9 +183,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
         setOpen(false)
         setString(KEY_OPEN, '0')
         // 操作パネル閉じる時に編集状態もリセット
-        setIsEditMode(false)
-        setEditingButton(null)
-        setEditingValues({ label: '', seconds: '' })
+        resetEditing()
       }
       api.toggle = () => (open ? api.close() : api.openSmart())
       api.isTyping = () => typing
@@ -232,136 +249,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
       } catch {}
     }, [])
 
-    // カスタムボタンの編集処理
-    const startEditButton = (displayIndex: number) => {
-      if (!isEditMode) {
-        return // 編集モードでない場合は何もしない
-      }
-      
-      // 表示中のボタンから実際のボタンを取得
-      const button = customButtons[displayIndex]
-      if (!button) return
-      
-      // 実際のボタン配列でのインデックスも一緒に保存
-      loadCustomButtonsAsync().then(config => {
-        // 表示中のボタンに対応する全体配列でのインデックスを見つける
-        let actualIndex = -1
-        let enabledCount = 0
-        
-        for (let i = 0; i < config.buttons.length; i++) {
-          if (config.buttons[i].enabled && config.buttons[i].label.trim() !== '') {
-            if (enabledCount === displayIndex) {
-              actualIndex = i
-              break
-            }
-            enabledCount++
-          }
-        }
-        
-        if (actualIndex !== -1) {
-          setEditingButton(actualIndex) // 実際のインデックスを使用
-          setEditingValues({
-            label: button.label,
-            seconds: button.seconds.toString()
-          })
-        }
-      })
-    }
-    
-    const toggleEditMode = () => {
-      setIsEditMode(!isEditMode)
-      if (isEditMode) {
-        // 編集モード終了時は編集中の状態をリセット
-        setEditingButton(null)
-        setEditingValues({ label: '', seconds: '' })
-      }
-    }
-    
-    const toggleCustomButtons = () => {
-      const newState = !showCustomButtons
-      setShowCustomButtons(newState)
-      try { setBool(Keys.CardCustomOpen, newState) } catch {}
-      
-      // 編集モードも一緒に閉じる
-      if (!newState && isEditMode) {
-        setIsEditMode(false)
-        setEditingButton(null)
-        setEditingValues({ label: '', seconds: '' })
-      }
-      
-      // useLayoutEffectが自動的にレイアウトを処理するため、手動チェック不要
-      // 状態は localStorage に保存済み
-    }
-
-    const saveEditButton = () => {
-      if (editingButton === null) return
-      
-      // 編集中のボタンを取得
-      const buttonToEdit = customButtons[editingButton]
-      if (!buttonToEdit) return
-      
-      const labelValidation = validateLabel(editingValues.label)
-      const secondsValue = parseInt(editingValues.seconds) || 0
-      const secondsValidation = validateSeconds(secondsValue)
-      
-      if (!labelValidation.valid) {
-        showToast(labelValidation.error || 'Invalid label', 'warn')
-        return
-      }
-      
-      if (!secondsValidation.valid) {
-        showToast(secondsValidation.error || 'Invalid seconds', 'warn')
-        return
-      }
-      
-      // 最新の設定を非同期で取得してボタンを更新
-      loadCustomButtonsAsync().then(config => {
-        const newButtons = [...config.buttons]
-        
-        // editingButtonは既に実際のインデックスなので直接使用
-        if (editingButton >= 0 && editingButton < newButtons.length) {
-          newButtons[editingButton] = {
-            label: editingValues.label,
-            seconds: secondsValue,
-            enabled: editingValues.label.trim() !== ''
-          }
-          
-          saveCustomButtons({ buttons: newButtons })
-          setCustomButtons(getEnabledButtons({ buttons: newButtons }))
-          setEditingButton(null)
-          setEditingValues({ label: '', seconds: '' })
-          showToast(t('toast.button_updated'), 'info')
-        } else {
-          showToast(t('toast.button_not_found'), 'warn')
-        }
-      }).catch(() => {
-        showToast(t('toast.failed_update'), 'warn')
-      })
-    }
-
-    const cancelEditButton = () => {
-      setEditingButton(null)
-      setEditingValues({ label: '', seconds: '' })
-    }
-
-    const addNewButton = () => {
-      if (!isEditMode) return // 編集モードでない場合は何もしない
-      
-      loadCustomButtonsAsync().then(config => {
-        const firstEmptyIndex = config.buttons.findIndex(btn => !btn.enabled || btn.label.trim() === '')
-        
-        if (firstEmptyIndex === -1) {
-          showToast('Maximum 6 buttons allowed', 'warn')
-          return
-        }
-        
-        // 新規ボタンの場合は特別な処理が必要
-        setEditingButton(customButtons.length) // 表示中のボタンの後に追加
-        setEditingValues({ label: '', seconds: '60' })
-      }).catch(() => {
-        showToast('Failed to add new button', 'warn')
-      })
-    }
+    // （編集ロジックはフックへ移譲済み）
 
     // 外側クリックで閉じる
     useEffect(() => {
