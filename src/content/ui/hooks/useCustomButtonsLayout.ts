@@ -56,24 +56,22 @@ export function useCustomButtonsLayout(
     const container = customButtonsContainer as HTMLElement
     const buttons = container.querySelectorAll('.custom-button')
 
-    // 6個未満の場合は常に1行表示
+    // 既定仕様: 標準は 6×1 を優先し、明確に幅が足りない極端な場合のみ 3×2
     if (buttons.length < 6) {
       setIsCompactLayout(false)
       return
     }
 
-    // Ghost DOM方式で自然幅を測定
+    // Ghost DOMで自然幅を取得し、コンテナに対して30%を超えて不足する場合のみ折り返し
     const neededRowWidth = measureRowWidthViaGhost(container, 4)
     const containerWidth = Math.floor(container.getBoundingClientRect().width)
-
-    // 個別ボタンの文字数チェック（10文字以上で早期移行）
-    const buttonLabels = Array.from(buttons).map(btn => btn.textContent || '')
-    const hasLongLabel = buttonLabels.some(label => label.length >= 10)
-
-    // 判定（余裕をもって早めに3×2に移行）
-    const SAFETY_MARGIN = 8 // 8px の安全マージン
-    const exceedsWidth = neededRowWidth > containerWidth - SAFETY_MARGIN
-    const needsCompact = hasLongLabel || exceedsWidth
+    if (containerWidth <= 0) {
+      // レイアウト未確定（初回測定など）は 6×1 を優先
+      setIsCompactLayout(false)
+      return
+    }
+    const exceedsWidthBy = neededRowWidth - containerWidth
+    const needsCompact = exceedsWidthBy > containerWidth * 0.3 // 30%を超える場合に限る
 
     setIsCompactLayout(needsCompact)
   }

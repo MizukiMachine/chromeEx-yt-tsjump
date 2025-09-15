@@ -61,7 +61,7 @@ export function TZDropdown(props: {
 
   return (
     <div class="yt-dd" style={{ flex:'1 1 auto', minWidth:0 }}>
-      <button ref={buttonRef as any} type="button" class="yt-dd-btn" style={{ fontSize:'11px' }} onClick={onToggle}>{labelTZ(zone)}</button>
+      <button ref={buttonRef as any} type="button" class="yt-dd-btn" style={{ fontSize:'14px' }} onClick={onToggle}>{labelTZ(zone)}</button>
       {open && (
         <div class="yt-dd-menu" onMouseDown={(e: any) => e.stopPropagation()}>
           {mru.length > 0 && <div class="yt-dd-group">{lang === 'ja' ? '最近使用したもの' : 'Recent'}</div>}

@@ -350,8 +350,8 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     return (
       <div id="yt-card" ref={cardRef} class={isEditMode ? 'edit-mode' : ''} style={{
         position: 'fixed', zIndex: '2147483647',
-        background: 'rgba(17,17,17,.92)', color: '#fff', padding: '10px 12px', borderRadius: '10px',
-        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '300px', pointerEvents: 'auto', display,
+        background: 'rgba(17,17,17,.92)', color: '#fff', padding: '12px 14px', borderRadius: '10px',
+        boxShadow: '0 2px 12px rgba(0,0,0,.4)', width: '320px', pointerEvents: 'auto', display,
         opacity: .85,
         cursor: 'move',
         ...stylePos
@@ -413,12 +413,12 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           .custom-button { 
             position: relative !important; 
             min-width: 35px;
-            padding: 4px 6px; 
-            font-size: 11px; 
+            padding: 6px 10px; 
+            font-size: 14px; 
             background: #222; 
             color: #fff; 
             border: 1px solid #444; 
-            border-radius: 4px; 
+            border-radius: 6px; 
             cursor: pointer; 
             text-align: center; 
             white-space: nowrap; 
@@ -565,7 +565,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               display: flex;
               align-items: center;
               box-sizing: border-box;
-              height: 30px; /* fixed for consistent card height across locales */
+              height: 32px; /* fixed for consistent card height across locales */
               text-align: left;
               background:#111;
               color:#fff;
@@ -573,7 +573,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
               border-radius:6px;
               padding:0 30px 0 8px; /* space for caret */
               cursor:pointer;
-              font-size:12px;
+              font-size:14px;
               white-space: nowrap;
               overflow: hidden;
               text-overflow: ellipsis;
@@ -605,9 +605,9 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             pattern="[0-9:]*"
             placeholder={t('ui.placeholder_time')}
             spellcheck={false}
-            style={{ flex:'1 1 auto', minWidth:0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
+            style={{ flex:'1 1 auto', minWidth:0, padding: '6px 8px', borderRadius: '6px', border: '1px solid #444', background: '#111', color: '#fff', outline: 'none', boxSizing: 'border-box', height: '32px', fontSize: '14px' }}
             />
-            <button type="submit" style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #444', background: 'rgba(17,17,17,.92)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto' }}>{t('ui.jump_button')}</button>
+            <button type="submit" style={{ padding: '0 12px', height: '32px', borderRadius: '6px', border: '1px solid #444', background: 'rgba(17,17,17,.92)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap', flex: '0 0 auto', fontSize: '14px' }}>{t('ui.jump_button')}</button>
           </div>
           {/* TZ selector (small line, text smaller than main) */}
           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', alignItems: 'center', width: '100%' }}>
