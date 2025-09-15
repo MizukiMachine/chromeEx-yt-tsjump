@@ -14,6 +14,7 @@ import { isAdActive } from './adsense';
 import { DEFAULT_HYBRID_CONFIG, type HybridCalibConfig } from './hybrid/config';
 import { now, getBufferedEnd, isAtEdge } from './hybrid/utils';
 import { attachPlaybackLockEvents as attachPlaybackLockEventsExt } from './hybrid/lock';
+import { addTimer as addTimerToList, clearAllTimers as clearAllTimersFromList } from './hybrid/timer';
 
 // ===== 設定型定義 =====
 // 設定型とデフォルトは ./hybrid/config に切り出し
@@ -72,27 +73,7 @@ function debugLog(event: string, data: any = {}): void {
   }
 }
 
-// ===== タイマー管理 =====
-
-/**
- * タイマーを登録
- */
-function addTimer(timerId: number): void {
-  state.timers.push(timerId);
-}
-
-/**
- * 全タイマーをクリア
- */
-function clearAllTimers(): void {
-  state.timers.forEach(id => {
-    try {
-      window.clearTimeout(id);
-      window.clearInterval(id);
-    } catch {}
-  });
-  state.timers = [];
-}
+// ===== タイマー管理（外部ユーティリティへ移行） =====
 
 // ===== ロック（イベント）管理（外部モジュールへ移行） =====
 
@@ -346,7 +327,7 @@ export function startCalibration(): void {
   attachPlaybackLockEventsExt({
     video: state.video,
     setLocked: (v) => { state.locked = v; },
-    addTimer: (id) => addTimer(id),
+    addTimer: (id) => addTimerToList(state.timers, id),
     addCleanup: (fn) => { state.cleanups.push(fn); },
     onDebug: (ev, data) => debugLog(ev, data),
   });
@@ -404,7 +385,7 @@ export function startCalibration(): void {
       if (executeEdgeSnap(state.video!)) {
         // 成功したらPLL開始
         const pllId = window.setInterval(executePllTick, state.config.pll.intervalMs);
-        addTimer(pllId);
+        addTimerToList(state.timers, pllId);
         debugLog('pll-started');
         try { console.log('[HybridCalib] pll-started'); } catch {}
       } else {
@@ -414,7 +395,7 @@ export function startCalibration(): void {
     }
   }, 1000); // 1秒間隔で右端監視
 
-  addTimer(edgeMonitorId);
+  addTimerToList(state.timers, edgeMonitorId);
   debugLog('monitoring-started');
   try { console.log('[HybridCalib] monitoring-started'); } catch {}
 }
@@ -517,7 +498,7 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): SeekResult 
       state.locked = false;
       debugLog('unlock');
     }, 1500);
-    addTimer(unlockId);
+    addTimerToList(state.timers, unlockId);
 
     return result;
   } catch (error) {
@@ -531,7 +512,7 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): SeekResult 
  * システムの破棄（全タイマー停止）
  */
 export function disposeHybrid(): void {
-  clearAllTimers();
+  clearAllTimersFromList(state.timers);
   state.locked = false;
   state.consec = 0;
   // イベントクリーンアップ
