@@ -15,9 +15,9 @@ export default defineConfig({
           : ['https://www.youtube.com/*', 'https://www.youtube-nocookie.com/*'];
         return ({
         manifest_version: 3,
-        name: 'YouTube Long Seek & Timestamp Jump',
+        name: 'TS Jump on Youtube',
         version: '1.0.0',
-        description: 'Enhanced YouTube controls with long seek and timestamp-aware time jumping',
+        description: 'Enhanced YouTube controls with long skip and timestamp-aware time jumping',
         
         // 権限設定
         permissions: [

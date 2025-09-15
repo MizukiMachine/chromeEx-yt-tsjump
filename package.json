@@ -1,7 +1,7 @@
 {
   "name": "yt-longseek-tsjump",
   "version": "1.0.0",
-  "description": "YouTube Long Seek & Timestamp Jump Chrome Extension",
+  "description": "Enhanced YouTube controls with long skip and timestamp-aware time jumping",
   "type": "module",
   "scripts": {
     "dev": "vite",

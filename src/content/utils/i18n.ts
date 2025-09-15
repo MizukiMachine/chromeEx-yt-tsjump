@@ -132,7 +132,7 @@ const dict: Record<Lang, I18nDict> = {
     },
     options: {
       header: 'Extension Options',
-      title: 'YouTube Long Seek & Timestamp Jump — Options',
+      title: 'TS Jump on Youtube — Options',
       debug_mode: 'Enable debug mode',
       debug_desc: 'Shows debug logs and enables the debug panel shortcut.',
       default_language: 'Default language',
@@ -213,7 +213,7 @@ const dict: Record<Lang, I18nDict> = {
     },
     options: {
       header: '拡張機能オプション',
-      title: 'YouTube 長時間シーク＆時刻ジャンプ — オプション',
+      title: 'TS Jump on Youtube — オプション',
       debug_mode: 'デバッグモードを有効にする',
       debug_desc: 'ログにデバッグ情報を表示し、ショートカットでデバッグパネルを開けるようになります。',
       default_language: '表示言語',

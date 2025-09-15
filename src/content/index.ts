@@ -30,7 +30,7 @@ function frameTag(): string {
   }
 }
 
-console.log(`[Content:${frameTag()}] YouTube Long Seek & Timestamp Jump loaded`);
+console.log(`[Content:${frameTag()}] TS Jump on Youtube loaded`);
 
 // 初期化フラグ（重複実行防止）
 let isInitialized = false;
