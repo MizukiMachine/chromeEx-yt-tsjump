@@ -12,6 +12,7 @@ import { getSeekableStart, getSeekableEnd, seek } from './seek';
 import { getBool, getJSON, Keys } from '../store/local';
 import { isAdActive } from './adsense';
 import { DEFAULT_HYBRID_CONFIG, type HybridCalibConfig } from './hybrid/config';
+import { now, getBufferedEnd, isAtEdge } from './hybrid/utils';
 
 // ===== 設定型定義 =====
 // 設定型とデフォルトは ./hybrid/config に切り出し
@@ -51,39 +52,7 @@ let state: HybridState = {
 
 // ===== ヘルパー関数 =====
 
-/**
- * 現在のUTC時刻（秒）
- */
-const now = (): number => Date.now() / 1000;
-
-/**
- * bufferedEndを安全に取得
- */
-function getBufferedEnd(video: HTMLVideoElement): number {
-  try {
-    const buffered = video.buffered;
-    if (buffered && buffered.length > 0) {
-      const end = buffered.end(buffered.length - 1);
-      return Number.isFinite(end) ? end : NaN;
-    }
-    return NaN;
-  } catch {
-    return NaN;
-  }
-}
-
-/**
- * 右端にいるかの判定
- */
-function isAtEdge(video: HTMLVideoElement, bufSlackSec: number = 2): boolean {
-  try {
-    const bufferedEnd = getBufferedEnd(video);
-    const currentTime = video.currentTime;
-    return Number.isFinite(bufferedEnd) && Number.isFinite(currentTime) && (bufferedEnd - currentTime) <= bufSlackSec;
-  } catch {
-    return false;
-  }
-}
+// now, getBufferedEnd, isAtEdge は ./hybrid/utils に移動
 
 /**
  * デバッグログ出力（デバッグモード時のみ）
