@@ -303,12 +303,8 @@ export function startCalibration(): void {
         if (Number.isFinite(endEff)) {
           const prevC = state.C;
           state.C = (now() - L) - (endEff as number);
-          // D は両方ある場合のみ記録
-          if (Number.isFinite(bufEnd) && Number.isFinite(seekEnd)) {
-            state.D = (bufEnd as number) - (seekEnd as number);
-          } else {
-            state.D = 0;
-          }
+          // 重要: 暫定キャリブ段階では D を確定しない（Edge-Snap 成功時のみDを採用）
+          // state.D は initHybrid で 0 に初期化済みのためここでは触れない
           // 初期Cの異常値ガード（あまりに大きい誤差のCは捨ててフォールバックへ誘導）
           const e_raw = (Number.isFinite(seekEnd) && Number.isFinite(state.C as any)) ? ((seekEnd as number) + (state.C as number) - ((now()) - L)) : NaN;
           const abnormal = Number.isFinite(e_raw) && Math.abs(e_raw as number) > 600; // 10分超なら異常
