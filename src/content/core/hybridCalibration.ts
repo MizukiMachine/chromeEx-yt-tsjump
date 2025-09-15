@@ -554,24 +554,26 @@ export function getC(): number | null {
  * 指定epochへのジャンプ実行
  * 関数内でCsnapを固定してレース回避
  */
-export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): boolean {
+import type { SeekResult } from './seek';
+
+export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): SeekResult | null {
   if (!state.video) {
     debugLog('jump-error', { reason: 'no-video' });
-    return false;
+    return null;
   }
 
   // 初回実行時、CもCsnapArgも無い場合のみEdge-Snapを試行
   if (!Number.isFinite(state.C) && !Number.isFinite(CsnapArg as any)) {
     if (!executeEdgeSnap(state.video)) {
       debugLog('jump-error', { reason: 'not-calibrated-and-not-at-edge' });
-      return false;
+      return null;
     }
   }
 
   // この時点でCは必ず数値になっている
   if (!Number.isFinite(state.C) && !Number.isFinite(CsnapArg as any)) {
     debugLog('jump-error', { reason: 'C-still-not-available' });
-    return false;
+    return null;
   }
 
   // ロック開始
@@ -590,7 +592,7 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): boolean {
   // シーク実行
   try {
     // 統一クランプ・安全処理で実行
-    seek(state.video, t);
+    const result = seek(state.video, t);
 
     // ロック解除タイマー
     const unlockId = window.setTimeout(() => {
@@ -599,11 +601,11 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): boolean {
     }, 1500);
     addTimer(unlockId);
 
-    return true;
+    return result;
   } catch (error) {
     state.locked = false;
     debugLog('jump-error', { error });
-    return false;
+    return null;
   }
 }
 

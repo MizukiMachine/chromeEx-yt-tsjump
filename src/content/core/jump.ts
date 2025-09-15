@@ -142,8 +142,11 @@ export function jumpToLocalTimeHybrid(
 
         const tTarget = picked - (fallbackCsnap as number);
         const r = seek(v, tTarget);
-        // 軽い通知で案内
-        showToast(t('toast.moved_current'), 'info');
+        // 範囲外→端へ移動した旨を通知（端に応じて文言を出し分け）
+        if (r.clamped) {
+          const key = r.reason === 'start' ? 'toast.moved_start' : 'toast.moved_current';
+          showToast(t(key), 'info');
+        }
         try { logJump({ decision: 'seek-in-range', input, zone, normalized: parsed.normalized, epoch: picked, result: r, flags: { ambiguous: false, gap: false } }); } catch {}
         return { ok: true, decision: 'seek-in-range', normalized: parsed.normalized, epoch: picked, target: r.target, range: r.range, flags: { ambiguous: false, gap: false } };
       }
@@ -225,10 +228,18 @@ export function jumpToLocalTimeHybrid(
     }
   } catch {}
 
-  const success = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined);
-  if (!success) {
+  const resultFromJump = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined);
+  if (!resultFromJump) {
     return { ok: false, decision: 'parse-error', reason: 'jump execution failed' };
   }
+
+  // 実際のクランプ結果に基づきトースト表示（start/endのどちらに寄ったかで文言出し分け）
+  try {
+    if (resultFromJump.clamped) {
+      const key = resultFromJump.reason === 'start' ? 'toast.moved_start' : 'toast.moved_current';
+      showToast(t(key), 'info');
+    }
+  } catch {}
 
   // 成功時のログ出力
   try {
