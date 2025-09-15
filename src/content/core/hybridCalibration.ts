@@ -35,6 +35,11 @@ interface HybridState {
   dfallback: number | null;    // 暫定D（幅とPLLのみで使用、ジャンプ式やC再生成には使わない）
   dfallbackUntil: number;      // 有効期限（ms）
   leadSamples: number[];       // futureLeadSec の直近サンプル
+  // 広告状態の変化検出（境界直後の採用を抑制）
+  adActivePrev: boolean;
+  adLastChangeMs: number;
+  // 壊れたDの自動回復カウンタ
+  badDCounter: number;
 }
 
 // グローバル状態
@@ -51,6 +56,9 @@ let state: HybridState = {
   dfallback: null,
   dfallbackUntil: 0,
   leadSamples: [],
+  adActivePrev: false,
+  adLastChangeMs: 0,
+  badDCounter: 0,
 };
 
 // ===== ヘルパー関数 =====
@@ -103,9 +111,22 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
 
   // 広告中は避ける
   try {
-    if (isAdActive()) {
+    const adNow = !!isAdActive();
+    const nowMs = Date.now();
+    if (adNow !== state.adActivePrev) {
+      state.adActivePrev = adNow;
+      state.adLastChangeMs = nowMs;
+    }
+    const adInactiveForSec = adNow ? 0 : Math.max(0, (nowMs - state.adLastChangeMs) / 1000);
+    if (adNow) {
       debugLog('edge-snap-skip', { reason: 'ad-active' });
       try { console.log('[EdgeSnap:SKIP]', { reason: 'ad-active' }); } catch {}
+      return false;
+    }
+    // 広告明け直後は不安定 → 一定時間は採用を保留
+    if (adInactiveForSec < 3) {
+      debugLog('edge-snap-skip', { reason: 'ad-inactive-warmup', adInactiveForSec });
+      try { console.log('[EdgeSnap:SKIP]', { reason: 'ad-inactive-warmup', adInactiveForSec }); } catch {}
       return false;
     }
   } catch {}
@@ -141,6 +162,30 @@ function executeEdgeSnap(video: HTMLVideoElement): boolean {
     debugLog('edge-snap-skip', { reason: 'invalid-ends', bufferedEnd, seekableEnd });
     return false;
   }
+
+  // ---- D採用のサニティチェック（広告境界・異常差を排除）----
+  try {
+    const leadNow = (seekableEnd as number) - (bufferedEnd as number);
+    const leadLowerBound = 1800; // 30分未満は怪しい
+    // 直近サンプルの中央値（あれば）
+    let med = leadNow;
+    if (state.leadSamples.length >= 3) {
+      const s = [...state.leadSamples].sort((a,b)=>a-b);
+      const m = Math.floor(s.length/2);
+      med = s.length%2 ? s[m] : (s[m-1]+s[m])/2;
+    }
+    const consistent = Math.abs(leadNow - med) <= 600; // ±10分以内
+    if (leadNow < leadLowerBound) {
+      debugLog('edge-snap-skip', { reason: 'lead-too-small', leadNow });
+      try { console.log('[EdgeSnap:SKIP]', { reason: 'lead-too-small', leadNow }); } catch {}
+      return false;
+    }
+    if (!consistent) {
+      debugLog('edge-snap-skip', { reason: 'lead-inconsistent', leadNow, median: med });
+      try { console.log('[EdgeSnap:SKIP]', { reason: 'lead-inconsistent', leadNow, median: med }); } catch {}
+      return false;
+    }
+  } catch {}
 
   // 強キャリブレーション実行
   const prevC = state.C;
@@ -211,6 +256,11 @@ export function initHybrid(video: HTMLVideoElement, config: Partial<HybridCalibC
   state.D = 0;
   state.locked = false;
   state.consec = 0;
+  try {
+    state.adActivePrev = !!isAdActive();
+  } catch { state.adActivePrev = false; }
+  state.adLastChangeMs = Date.now();
+  state.badDCounter = 0;
 
   debugLog('init', { config: state.config });
 }
