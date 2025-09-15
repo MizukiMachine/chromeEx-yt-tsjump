@@ -13,6 +13,7 @@ import { getBool, getJSON, Keys } from '../store/local';
 import { isAdActive } from './adsense';
 import { DEFAULT_HYBRID_CONFIG, type HybridCalibConfig } from './hybrid/config';
 import { now, getBufferedEnd, isAtEdge } from './hybrid/utils';
+import { attachPlaybackLockEvents as attachPlaybackLockEventsExt } from './hybrid/lock';
 
 // ===== 設定型定義 =====
 // 設定型とデフォルトは ./hybrid/config に切り出し
@@ -93,37 +94,7 @@ function clearAllTimers(): void {
   state.timers = [];
 }
 
-// ===== ロック（イベント）管理 =====
-
-const LOCK_MS = 1500;
-
-function attachPlaybackLockEvents(video: HTMLVideoElement): void {
-  const onSeeking = () => { state.locked = true; debugLog('lock', { via: 'seeking' }); };
-  const onSeeked = () => {
-    const id = window.setTimeout(() => { state.locked = false; debugLog('unlock', { via: 'seeked+delay' }); }, LOCK_MS);
-    addTimer(id);
-  };
-  const onWaiting = () => { state.locked = true; debugLog('lock', { via: 'waiting' }); };
-  const onStalled = () => { state.locked = true; debugLog('lock', { via: 'stalled' }); };
-  const onPlaying = () => {
-    const id = window.setTimeout(() => { state.locked = false; debugLog('unlock', { via: 'playing+delay' }); }, 250);
-    addTimer(id);
-  };
-
-  try { video.addEventListener('seeking', onSeeking); } catch {}
-  try { video.addEventListener('seeked', onSeeked); } catch {}
-  try { video.addEventListener('waiting', onWaiting); } catch {}
-  try { video.addEventListener('stalled', onStalled); } catch {}
-  try { video.addEventListener('playing', onPlaying); } catch {}
-
-  state.cleanups.push(() => {
-    try { video.removeEventListener('seeking', onSeeking); } catch {}
-    try { video.removeEventListener('seeked', onSeeked); } catch {}
-    try { video.removeEventListener('waiting', onWaiting); } catch {}
-    try { video.removeEventListener('stalled', onStalled); } catch {}
-    try { video.removeEventListener('playing', onPlaying); } catch {}
-  });
-}
+// ===== ロック（イベント）管理（外部モジュールへ移行） =====
 
 // ===== Edge-Snap実装 =====
 
@@ -372,7 +343,13 @@ export function startCalibration(): void {
   }
 
   // 再生イベントロック
-  attachPlaybackLockEvents(state.video);
+  attachPlaybackLockEventsExt({
+    video: state.video,
+    setLocked: (v) => { state.locked = v; },
+    addTimer: (id) => addTimer(id),
+    addCleanup: (fn) => { state.cleanups.push(fn); },
+    onDebug: (ev, data) => debugLog(ev, data),
+  });
 
   // 初期の暫定キャリブレーション（右端にいない/バッファ未整備でもCを仮置き）
   try {
