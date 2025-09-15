@@ -153,25 +153,11 @@ export function getEnabledButtons(config: CustomButtonsConfig): CustomButton[] {
 export function validateLabel(label: string): { valid: boolean; error?: string } {
   // 空文字は無効化として許可
   if (label === '') return { valid: true };
-
-  try {
-    // 可視文字のみ許可（制御/不可視を含む場合はNG）
-    if (/[\p{C}]/u.test(label)) {
-      return { valid: false, error: t('toast.invalid_label_detail') };
-    }
-    // 文字数（コードポイント）上限
-    const len = Array.from(label).length;
-    if (len < 1 || len > 12) {
-      return { valid: false, error: t('toast.invalid_label_detail') };
-    }
-  } catch {
-    // 万一 Unicode 判定で例外が出た場合はフォールバックで英数±のみ
-    const fallback = /^[A-Za-z0-9+\-]{1,12}$/;
-    if (!fallback.test(label)) {
-      return { valid: false, error: t('toast.invalid_label') };
-    }
+  // 英数字と+/-のみ、最大12文字
+  const ascii = /^[A-Za-z0-9+\-]{1,12}$/;
+  if (!ascii.test(label)) {
+    return { valid: false, error: t('toast.invalid_label_detail') };
   }
-
   return { valid: true };
 }
 

@@ -5,6 +5,7 @@ import type { RefObject } from 'preact'
  * カスタムボタンのレイアウト（6×1 ↔ 3×2）を自動判定するフック
  * - Shadow DOM 上の実測（Ghost DOMクローン）で自然幅を計測
  * - ResizeObserver でコンテナ幅変化に追従
+ * - 補助条件：可視ボタンが6個あり、どれかのラベルが7文字以上なら 3×2 へ即時移行
  * - 表示OFF時は `null` を返し、表示ON時に `false`(row) or `true`(compact) を返す
  */
 export function useCustomButtonsLayout(
@@ -61,6 +62,16 @@ export function useCustomButtonsLayout(
       setIsCompactLayout(false)
       return
     }
+
+    // 補助条件: ラベルが長い（>=7文字）が1つでもあれば 3×2 を即時選択
+    try {
+      const buttonLabels = Array.from(buttons).map(btn => (btn.textContent || '').trim())
+      const hasLongLabel = buttonLabels.some(label => label.length >= 7)
+      if (hasLongLabel) {
+        setIsCompactLayout(true)
+        return
+      }
+    } catch {}
 
     // Ghost DOMで自然幅を取得し、コンテナに対して30%を超えて不足する場合のみ折り返し
     const neededRowWidth = measureRowWidthViaGhost(container, 4)

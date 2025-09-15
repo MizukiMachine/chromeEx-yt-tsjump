@@ -658,9 +658,15 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
                     <input
                       type="text"
                       value={editingValues.label}
-                      onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+                      onInput={(e: any) => {
+                        const raw = e.currentTarget.value as string
+                        const cleaned = raw.replace(/[^A-Za-z0-9+\-]/g, '').slice(0, 12)
+                        if (cleaned !== raw) e.currentTarget.value = cleaned
+                        setEditingValues(prev => ({ ...prev, label: cleaned }))
+                      }}
                       placeholder={t('popup.label_ph')}
                       maxLength={12}
+                      pattern="[A-Za-z0-9+\-]{0,12}"
                       autoFocus
                     />
                   </div>
@@ -705,9 +711,15 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
             <input
               type="text"
               value={editingValues.label}
-              onInput={(e: any) => setEditingValues(prev => ({ ...prev, label: e.currentTarget.value }))}
+              onInput={(e: any) => {
+                const raw = e.currentTarget.value as string
+                const cleaned = raw.replace(/[^A-Za-z0-9+\-]/g, '').slice(0, 12)
+                if (cleaned !== raw) e.currentTarget.value = cleaned
+                setEditingValues(prev => ({ ...prev, label: cleaned }))
+              }}
               placeholder={t('popup.label_ph')}
               maxLength={12}
+              pattern="[A-Za-z0-9+\-]{0,12}"
               autoFocus
               style={{
                 background: '#1a1a1a',
