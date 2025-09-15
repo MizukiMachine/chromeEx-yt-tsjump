@@ -25,6 +25,7 @@ export const Keys = {
   QALog: 'qa:log',
   CfgHybrid: 'cfg:hybrid',
   DebugPanelPos: 'debug:panel:pos',
+  DebugCopyFullN: 'debug:copyFullN',
 } as const;
 
 /** 文字列値を取得（存在しなければ null） */

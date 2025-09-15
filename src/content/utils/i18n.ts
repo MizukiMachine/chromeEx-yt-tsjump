@@ -76,6 +76,8 @@ interface I18nDict {
     err_must_remain: string
     help_title: string
     help_text: string
+    debug_copy_full: string
+    debug_copy_full_ph: string
   }
 }
 
@@ -157,6 +159,8 @@ const dict: Record<Lang, I18nDict> = {
         '• Press Esc while the time input is focused to remove focus.',
         '• Edit custom buttons: click the ✎ icon on the card.'
       ].join('\n'),
+      debug_copy_full: 'Copy Full: recent events count',
+      debug_copy_full_ph: '50 (1–200)',
     },
   },
   ja: {
@@ -236,6 +240,8 @@ const dict: Record<Lang, I18nDict> = {
         '・ 時刻入力にフォーカスがあるときは Esc キーでフォーカスを解除できます。',
         '・ カスタムボタンを編集: カードの ✎ アイコンをクリック。'
       ].join('\n'),
+      debug_copy_full: 'Copy Full の件数（直近イベント）',
+      debug_copy_full_ph: '50（1〜200）',
     },
   },
 }

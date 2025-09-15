@@ -11,6 +11,7 @@ type State = {
   showAll: boolean
   filter: string
   useDefaults: boolean
+  debugCopyFullN: number
 }
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
     showAll: false,
     filter: '',
     useDefaults: true,
+    debugCopyFullN: 50,
   })
   const [status, setStatus] = useState<string>('')
 
@@ -41,7 +43,7 @@ function App() {
       } catch {}
       if (!allZones.length) allZones = COMMON_TZ
 
-      chrome.storage?.local?.get(['debug:all','lang','tz:enabled'], (res) => {
+      chrome.storage?.local?.get(['debug:all','lang','tz:enabled','debug:copyFullN'], (res) => {
         const normalize = (v: any) => v === true || v === '1' || v === 1
         const lang = (res?.['lang'] === 'ja' ? 'ja' : 'en') as 'en'|'ja'
         const enabledArr = Array.isArray(res?.['tz:enabled']) ? res!['tz:enabled'].filter((x: any) => typeof x === 'string') : []
@@ -49,6 +51,8 @@ function App() {
         const enabled = new Set<string>(enabledList)
         const defaultsSet = new Set(DEFAULT_ENABLED_TZ)
         const sameAsDefault = enabledList.length === DEFAULT_ENABLED_TZ.length && enabledList.every(z => defaultsSet.has(z))
+        const copyFullNRaw = parseInt(String(res?.['debug:copyFullN'] ?? '50'), 10)
+        const copyFullN = Number.isFinite(copyFullNRaw) ? Math.max(1, Math.min(200, copyFullNRaw)) : 50
         setState(prev => ({
           ...prev,
           debugAll: normalize(res?.['debug:all']),
@@ -56,6 +60,7 @@ function App() {
           tzEnabled: enabled,
           allZones,
           useDefaults: sameAsDefault,
+          debugCopyFullN: copyFullN,
         }))
       })
     } catch {}
@@ -76,7 +81,8 @@ function App() {
     chrome.storage?.local?.set({
       'debug:all': state.debugAll,
       'lang': state.lang,
-      'tz:enabled': enabledList
+      'tz:enabled': enabledList,
+      'debug:copyFullN': state.debugCopyFullN
     }, () => { flash(t('options.saved')) })
   }
 
@@ -146,6 +152,25 @@ function App() {
             <option value="en">{t('options.lang_en')}</option>
             <option value="ja">{t('options.lang_ja')}</option>
           </select>
+        </label>
+      </div>
+      {/* Debug copy count */}
+      <div class="row">
+        <label>
+          {t('options.debug_copy_full')}
+          <input
+            type="number"
+            min={1}
+            max={200}
+            step={1}
+            placeholder={t('options.debug_copy_full_ph')}
+            value={state.debugCopyFullN}
+            onInput={(e: any) => {
+              const v = parseInt(e.currentTarget.value, 10)
+              setState(s => ({ ...s, debugCopyFullN: Number.isFinite(v) ? Math.max(1, Math.min(200, v)) : s.debugCopyFullN }))
+            }}
+            style={{ marginLeft: '8px', width: '90px' }}
+          />
         </label>
       </div>
       <div class="row">

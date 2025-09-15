@@ -16,6 +16,7 @@ import { now, getBufferedEnd, isAtEdge } from './hybrid/utils';
 import { attachPlaybackLockEvents as attachPlaybackLockEventsExt } from './hybrid/lock';
 import { addTimer as addTimerToList, clearAllTimers as clearAllTimersFromList } from './hybrid/timer';
 import { executePllTick as executePllTickExt } from './hybrid/pll';
+import { logEvent } from '../events/emit';
 
 // ===== 設定型定義 =====
 // 設定型とデフォルトは ./hybrid/config に切り出し
@@ -79,6 +80,17 @@ function debugLog(event: string, data: any = {}): void {
       consec: state.consec,
       ...data,
     });
+
+    // 全イベントをリングバッファにも記録（デバッグON時のみ）
+    try {
+      logEvent(`hybrid:${event}`, {
+        C: state.C,
+        D: state.D,
+        locked: state.locked,
+        consec: state.consec,
+        ...data,
+      });
+    } catch {}
   }
 }
 

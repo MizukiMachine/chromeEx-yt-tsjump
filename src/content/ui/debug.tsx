@@ -54,12 +54,15 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
       return events.filter(e => JSON.stringify(e).toLowerCase().includes(q))
     }, [events, filter])
 
-    function copySnapshot() {
+    function copySnapshot(recentCount = 10) {
       const v = getVideo()
       const start = v ? getSeekableStart(v) : 0
       const end = v ? getSeekableEnd(v) : 0
       const endGuard = Math.max(start, end - GUARD_SEC)
       const cur = v ? safe(() => v!.currentTime, 0) : 0
+      const bufEnd = v ? getBufferedEndSafe(v) : 0
+      const futureLeadSec = (Number.isFinite(end) && Number.isFinite(bufEnd)) ? (end - (bufEnd as number)) : 0
+      const lagToBufferedSec = Number.isFinite(bufEnd) ? (bufEnd - cur) : 0
       const tz = getString(Keys.TzCurrent)
       const hybrid = safe(() => ({ state: getHybridState(), config: getHybridConfig() }), null as any)
       const last = events[events.length - 1] ?? null
@@ -67,10 +70,16 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
         ts: new Date().toISOString(),
         tz,
         seekable: { start, end, endGuard },
+        metrics: { bufferedEnd: bufEnd, futureLeadSec, lagToBufferedSec },
         currentTime: cur,
+        video: {
+          readyState: safe(() => (v as any).readyState, 0),
+          currentSrc: safe(() => (v as any).currentSrc, ''),
+        },
+        url: safe(() => location.href, ''),
         hybrid,
         lastEvent: last,
-        recent: events.slice(-10),
+        recent: events.slice(-recentCount),
       }
       const text = JSON.stringify(snap, null, 2)
       navigator.clipboard.writeText(text).catch(() => {})
@@ -129,7 +138,12 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
           <strong>Debug Panel</strong>
           <span class="sp" />
           <input value={filter} onInput={(e: any) => setFilter(e.currentTarget.value)} placeholder={t('debug.search_ph')} />
-          <button class="btn" title="Copy debug snapshot" onClick={copySnapshot}>Copy</button>
+          <button class="btn" title="Copy debug snapshot" onClick={() => copySnapshot(10)}>Copy</button>
+          <button class="btn" title="Copy debug snapshot (last N events)" onClick={() => {
+            const nRaw = getString(Keys.DebugCopyFullN)
+            const n = Math.max(1, Math.min(200, parseInt(String(nRaw ?? '50'), 10) || 50))
+            copySnapshot(n)
+          }}>Copy Full</button>
           <button class="btn" title="Clear logs" onClick={() => clear()}>Clear</button>
           <button class="btn" title="Close" onClick={() => setOpen(false)}>×</button>
         </div>
