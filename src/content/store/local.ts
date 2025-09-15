@@ -24,6 +24,7 @@ export const Keys = {
   DebugAll: 'debug:all',
   QALog: 'qa:log',
   CfgHybrid: 'cfg:hybrid',
+  DebugPanelPos: 'debug:panel:pos',
 } as const;
 
 /** 文字列値を取得（存在しなければ null） */
@@ -103,3 +104,20 @@ export type CardPos = { x: number; y: number };
 export function getCardPos(): CardPos | null { return getJSON<CardPos>(Keys.CardPos); }
 /** カード位置の保存 */
 export function setCardPos(pos: CardPos): void { setJSON(Keys.CardPos, pos); }
+
+// Debugパネル位置（タブ単位: sessionStorage で保持）
+export type DebugPanelPos = { x: number; y: number };
+export function getDebugPanelPos(): DebugPanelPos | null {
+  try {
+    const raw = sessionStorage.getItem(Keys.DebugPanelPos);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') return obj as DebugPanelPos;
+  } catch {}
+  return null;
+}
+export function setDebugPanelPos(pos: DebugPanelPos): void {
+  try {
+    sessionStorage.setItem(Keys.DebugPanelPos, JSON.stringify(pos));
+  } catch {}
+}

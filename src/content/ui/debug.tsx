@@ -2,9 +2,11 @@ import { render, h } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { getAll, subscribe, clear, type LogEvent } from '../log/buffer'
 import { t } from '../utils/i18n'
-import { getString, Keys } from '../store/local'
+import { getString, Keys, getDebugPanelPos, setDebugPanelPos } from '../store/local'
 import { getSeekableEnd, getSeekableStart, GUARD_SEC } from '../core/seek'
 import { getHybridState, getHybridConfig } from '../core/hybridCalibration'
+import { useDragHandling } from './hooks/useDragHandling'
+import type { Position } from './hooks/useCardPosition'
 
 type GetVideo = () => HTMLVideoElement | null
 
@@ -26,6 +28,11 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
     const [filter, setFilter] = useState('')
     const [events, setEvents] = useState<LogEvent[]>(() => getAll())
     const contRef = useRef<HTMLDivElement>(null)
+    const [pos, setPos] = useState<Position | null>(() => getDebugPanelPos())
+    const posRef = useRef<Position | null>(pos)
+    const handleRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => { posRef.current = pos }, [pos])
 
     // subscribe buffer
     useEffect(() => {
@@ -69,17 +76,43 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
       navigator.clipboard.writeText(text).catch(() => {})
     }
 
+    // ビューポート変化で位置を簡易クランプ（はみ出し防止）
+    useEffect(() => {
+      const onResize = () => {
+        setPos((p) => {
+          if (!p) return p
+          const vw = window.innerWidth, vh = window.innerHeight
+          const clamped = { x: Math.min(vw - 40, Math.max(0, p.x)), y: Math.min(vh - 40, Math.max(0, p.y)) }
+          if (clamped.x !== p.x || clamped.y !== p.y) setDebugPanelPos(clamped)
+          return clamped
+        })
+      }
+      window.addEventListener('resize', onResize)
+      window.addEventListener('orientationchange', onResize)
+      document.addEventListener('fullscreenchange', onResize)
+      return () => {
+        window.removeEventListener('resize', onResize)
+        window.removeEventListener('orientationchange', onResize)
+        document.removeEventListener('fullscreenchange', onResize)
+      }
+    }, [])
+
+    // ドラッグ（トップバーをハンドルにする）
+    useDragHandling(handleRef, posRef, setPos, (p) => setDebugPanelPos(p))
+
     const display = open ? '' : 'none'
+    const stylePos: any = pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto', bottom: 'auto' } : { right: '16px', bottom: '16px' }
     return (
       <div id="yt-debug" style={{
-        position: 'fixed', right: '16px', bottom: '16px', zIndex: '2147483647',
+        position: 'fixed', zIndex: '2147483647',
         width: '440px', maxHeight: '60vh', background: 'rgba(17,17,17,.96)', color: '#fff',
         border: '1px solid rgba(255,255,255,.1)', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,.45)',
         display,
+        ...stylePos,
       }}>
         <style>{`
           #yt-debug * { box-sizing: border-box; font: 12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif }
-          #yt-debug .top { display:flex; align-items:center; gap:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,.08) }
+          #yt-debug .top { display:flex; align-items:center; gap:8px; padding:8px; border-bottom:1px solid rgba(255,255,255,.08); cursor: move; user-select: none; }
           #yt-debug .top .sp { flex:1 1 auto }
           #yt-debug .top input { width: 220px; padding:4px 6px; border:1px solid #444; border-radius:6px; background:#0f0f0f; color:#fff }
           #yt-debug .btn { background:#212121; color:#ddd; border:1px solid #444; border-radius:6px; padding:4px 8px; cursor:pointer }
@@ -92,7 +125,7 @@ export function mountDebug(sr: ShadowRoot, getVideo: GetVideo): DebugAPI {
           #yt-debug .item .t { color:#a78bfa }
           #yt-debug pre { margin:0; white-space:pre-wrap; word-break:break-word }
         `}</style>
-        <div class="top">
+        <div class="top" ref={handleRef}>
           <strong>Debug Panel</strong>
           <span class="sp" />
           <input value={filter} onInput={(e: any) => setFilter(e.currentTarget.value)} placeholder={t('debug.search_ph')} />

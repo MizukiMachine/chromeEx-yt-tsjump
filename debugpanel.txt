@@ -1,7 +1,267 @@
-TZ: Europe/Amsterdam
-Seekable: start=0.00 end=50395.00 endGuard=50392.00
-currentTime: 46795.24
-lead(seekable−buffered): 3585.00s, lagToBuffered: 14.76s
-C: — D: 0.00 locked: false consec: 0
-edge: false DVR: start=0.00 end=50395.00 guard=50392.00
-e: — L=20 HYS=2.5 N=5 α=0.02 rate=0.008333333333333333
+TZ: America/Los_Angeles
+Seekable: start=0.00 end=50401.01 endGuard=50398.01
+currentTime: 46909.42
+lead(seekable−buffered): 3490.48s, lagToBuffered: 1.11s
+
+C: 1757914104.04 D: -13.50 D_eff: -13.50 locked: false consec: 0
+edge: true DVR: start=0.00 end=50401.01 guard=50398.01
+e: 50257.45 L=20 HYS=2.5 N=5 α=0.02 rate=0.008333333333333333
+
+{
+  "ts": "2025-09-15T05:31:02.862Z",
+  "tz": "America/Los_Angeles",
+  "seekable": {
+    "start": 0,
+    "end": 50401.00777097497,
+    "endGuard": 50398.00777097497
+  },
+  "currentTime": 46923.188896,
+  "hybrid": {
+    "state": {
+      "C": 1757914104.036,
+      "D": -13.497792,
+      "locked": false,
+      "consec": 0,
+      "hasVideo": true,
+      "isAtEdge": true,
+      "dfallback": null,
+      "dfallbackValid": false,
+      "dfallbackTtlSec": 0
+    },
+    "config": {
+      "latencySec": 20,
+      "edgeSlackSec": 12,
+      "nearLiveSlackSec": 18,
+      "pll": {
+        "hysSec": 2.5,
+        "consecN": 5,
+        "alpha": 0.02,
+        "maxRatePerSec": 0.008333333333333333,
+        "outlierESec": 4000,
+        "intervalMs": 1000
+      }
+    }
+  },
+  "lastEvent": {
+    "ts": 1757914259093,
+    "kind": "seekable-probe",
+    "data": {
+      "L": 20,
+      "start": 0,
+      "end": 50401.00777097497,
+      "bufferedEnd": 46920.582,
+      "currentTime": 46919.408719,
+      "D_cur": -3480.4257709749654,
+      "futureLeadSec": 3480.4257709749654,
+      "lagToBufferedSec": 1.173281000003044,
+      "C_hybrid": 1757914104.036,
+      "D_hybrid": -13.497792,
+      "e_raw_h": 50265.95077109337,
+      "e_withD": 50252.45297908783,
+      "approx60_hypothesis": false,
+      "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+    }
+  },
+  "recent": [
+    {
+      "ts": 1757914214091,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46875.582,
+        "currentTime": 46874.419767,
+        "D_cur": -3525.4257709749654,
+        "futureLeadSec": 3525.4257709749654,
+        "lagToBufferedSec": 1.1622330000027432,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50310.95277094841,
+        "e_withD": 50297.45497894287,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914219091,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46880.599,
+        "currentTime": 46879.417957,
+        "D_cur": -3520.4087709749656,
+        "futureLeadSec": 3520.4087709749656,
+        "lagToBufferedSec": 1.1810430000041379,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50305.95277094841,
+        "e_withD": 50292.45497894287,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914224091,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46885.666,
+        "currentTime": 46884.41881,
+        "D_cur": -3515.34177097497,
+        "futureLeadSec": 3515.34177097497,
+        "lagToBufferedSec": 1.247189999994589,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50300.95277094841,
+        "e_withD": 50287.45497894287,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914229091,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46890.616,
+        "currentTime": 46889.419265,
+        "D_cur": -3510.3917709749658,
+        "futureLeadSec": 3510.3917709749658,
+        "lagToBufferedSec": 1.196735000004992,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50295.95277094841,
+        "e_withD": 50282.45497894287,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914234092,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46895.582,
+        "currentTime": 46894.419929,
+        "D_cur": -3505.4257709749654,
+        "futureLeadSec": 3505.4257709749654,
+        "lagToBufferedSec": 1.1620709999988321,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50290.95177102089,
+        "e_withD": 50277.45397901535,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914239092,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46900.598162,
+        "currentTime": 46899.419487,
+        "D_cur": -3500.4096089749655,
+        "futureLeadSec": 3500.4096089749655,
+        "lagToBufferedSec": 1.1786750000028405,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50285.95177102089,
+        "e_withD": 50272.45397901535,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914244092,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46905.599,
+        "currentTime": 46904.418377,
+        "D_cur": -3495.4087709749656,
+        "futureLeadSec": 3495.4087709749656,
+        "lagToBufferedSec": 1.180623000000196,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50280.95177102089,
+        "e_withD": 50267.45397901535,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914249093,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46910.532,
+        "currentTime": 46909.419872,
+        "D_cur": -3490.4757709749683,
+        "futureLeadSec": 3490.4757709749683,
+        "lagToBufferedSec": 1.1121280000006664,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50275.95077109337,
+        "e_withD": 50262.45297908783,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914254092,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46915,
+        "currentTime": 46914.417358,
+        "D_cur": -3486.0077709749676,
+        "futureLeadSec": 3486.0077709749676,
+        "lagToBufferedSec": 0.5826420000012149,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50270.95177102089,
+        "e_withD": 50257.45397901535,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    },
+    {
+      "ts": 1757914259093,
+      "kind": "seekable-probe",
+      "data": {
+        "L": 20,
+        "start": 0,
+        "end": 50401.00777097497,
+        "bufferedEnd": 46920.582,
+        "currentTime": 46919.408719,
+        "D_cur": -3480.4257709749654,
+        "futureLeadSec": 3480.4257709749654,
+        "lagToBufferedSec": 1.173281000003044,
+        "C_hybrid": 1757914104.036,
+        "D_hybrid": -13.497792,
+        "e_raw_h": 50265.95077109337,
+        "e_withD": 50252.45297908783,
+        "approx60_hypothesis": false,
+        "url": "https://www.youtube.com/watch?v=fGsJsJvDgF4&list=PL4yS7fDCWW-RpYHRfuJzCrYu_8UJ0yeqm&index=47"
+      }
+    }
+  ]
+}
