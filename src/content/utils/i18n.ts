@@ -95,7 +95,7 @@ const dict: Record<Lang, I18nDict> = {
     popup: {
       label_with_max: 'Label (A-Z, 0-9, +, -, 12max)',
       label_ph: 'e.g. +30',
-      seconds_to_seek: 'Seconds to seek',
+      seconds_to_seek: 'Seconds to skip',
       seconds_ph: 'e.g. 30 or -30',
       save: 'Save',
       cancel: 'Cancel',
