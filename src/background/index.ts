@@ -57,6 +57,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message && message.type === 'OPTIONS_TZ_UPDATED') {
+    try {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => {
+          if (!tab.id) return;
+          try {
+            chrome.tabs.sendMessage(tab.id, { type: 'OPTIONS_TZ_UPDATED' }, () => void chrome.runtime.lastError);
+          } catch {}
+        });
+      });
+    } catch {}
+    try { sendResponse({ received: true }); } catch {}
+    return true;
+  }
   return false;
 });
 
