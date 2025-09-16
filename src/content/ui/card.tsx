@@ -1,7 +1,8 @@
 import { render, h } from 'preact'
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { PRESET_ZONES, DEFAULT_ZONE } from '../core/timezone'
 import { t, getLang, formatSeconds } from '../utils/i18n'
+import { isDisplayableZone } from '../utils/timezoneLabel'
 import { jumpToLocalTimeHybrid } from '../core/jump'
 import { getString, setString, getJSON, addTZMru, Keys, getBool } from '../store/local'
 import { clampRectToViewport, clampRectToBounds } from '../utils/layout'
@@ -226,28 +227,60 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
     // 位置は useCardPosition に集約（レイアウト計算は専用フックに委譲）
     // 初期状態は localStorage の値を採用（レイアウトはフックが決定）
 
-    // optionsページからのTZ初期リスト（chrome.storage.local）を一度読み込み
-    useEffect(() => {
+    const refreshEnabledZones = useCallback(() => {
       try {
         const anyChrome = (globalThis as any).chrome
-        if (!anyChrome?.storage?.local) return
+        if (!anyChrome?.storage?.local) {
+          setPresets(PRESET_ZONES.filter(isDisplayableZone))
+          return
+        }
         anyChrome.storage.local.get(['tz:enabled'], (res: any) => {
           const arr = res?.['tz:enabled']
           if (Array.isArray(arr) && arr.length > 0) {
             const uniq = Array.from(new Set(arr.filter((x) => typeof x === 'string' && x)))
-            if (uniq.length > 0) {
-              setPresets(uniq)
-              // 現在選択中のゾーンが無効化されていたら DEFAULT_ZONE にフォールバック
-              const cur = zone
-              if (!uniq.includes(cur)) {
-                setZone(DEFAULT_ZONE)
+            const filtered = uniq.filter(isDisplayableZone)
+            if (filtered.length > 0) {
+              setPresets(filtered)
+              setZone((current) => {
+                if (filtered.includes(current)) return current
                 try { setString(Keys.TzCurrent, DEFAULT_ZONE) } catch {}
-              }
+                return DEFAULT_ZONE
+              })
+              return
             }
           }
+          const fallback = PRESET_ZONES.filter(isDisplayableZone)
+          setPresets(fallback)
+          setZone((current) => {
+            if (fallback.includes(current)) return current
+            try { setString(Keys.TzCurrent, DEFAULT_ZONE) } catch {}
+            return DEFAULT_ZONE
+          })
         })
-      } catch {}
-    }, [])
+      } catch {
+        const fallback = PRESET_ZONES.filter(isDisplayableZone)
+        setPresets(fallback)
+        setZone((current) => {
+          if (fallback.includes(current)) return current
+          try { setString(Keys.TzCurrent, DEFAULT_ZONE) } catch {}
+          return DEFAULT_ZONE
+        })
+      }
+    }, [setPresets, setZone])
+
+    useEffect(() => {
+      refreshEnabledZones()
+    }, [refreshEnabledZones])
+
+    useEffect(() => {
+      const handler = (message: any) => {
+        if (message && message.type === 'OPTIONS_TZ_UPDATED') {
+          refreshEnabledZones()
+        }
+      }
+      try { chrome.runtime?.onMessage?.addListener(handler) } catch {}
+      return () => { try { chrome.runtime?.onMessage?.removeListener(handler) } catch {} }
+    }, [refreshEnabledZones])
 
     // （編集ロジックはフックへ移譲済み）
 

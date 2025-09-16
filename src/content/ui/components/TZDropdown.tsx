@@ -1,5 +1,6 @@
 // Using automatic JSX runtime with preact; explicit h import not needed
 import { getOffsetMinutesNow, formatOffsetHM, displayNameForZone } from '../../core/timezone'
+import { formatTimeZoneLabel } from '../../utils/timezoneLabel'
 
 export function TZDropdown(props: {
   zone: string
@@ -14,45 +15,17 @@ export function TZDropdown(props: {
   const { zone, mru, others, lang, open, onToggle, onSelect, buttonRef } = props
 
   const labelTZ = (z: string): string => {
-    try {
-      const jpMap: Record<string,string> = {
-        'Asia/Tokyo': '日本:東京', 'Asia/Seoul': '韓国:ソウル', 'Europe/Amsterdam': 'オランダ:アムステルダム',
-        'Africa/Windhoek': 'ナミビア:ウィントフック', 'Africa/Nairobi': 'ケニア:ナイロビ', 'America/New_York': '米国:ニューヨーク',
-        'America/Los_Angeles': '米国:ロサンゼルス', 'Pacific/Honolulu': '米国:ホノルル', 'Europe/Copenhagen': 'デンマーク:コペンハーゲン',
-        'Europe/London': '英国:ロンドン', 'Europe/Berlin': 'ドイツ:ベルリン', 'Europe/Rome': 'イタリア:ローマ',
-        'Australia/Sydney': '豪州:シドニー', 'Asia/Singapore': 'シンガポール', 'UTC': 'UTC:UTC',
-      }
-      const enMap: Record<string,string> = {
-        'Asia/Tokyo': 'Japan:Tokyo', 'Asia/Seoul': 'Korea:Seoul', 'Europe/Amsterdam': 'Netherlands:Amsterdam',
-        'Africa/Windhoek': 'Namibia:Windhoek', 'Africa/Nairobi': 'Kenya:Nairobi', 'America/New_York': 'USA:New York',
-        'America/Los_Angeles': 'USA:Los Angeles', 'Pacific/Honolulu': 'USA:Honolulu', 'Europe/Copenhagen': 'Denmark:Copenhagen',
-        'Europe/London': 'UK:London', 'Europe/Berlin': 'Germany:Berlin', 'Europe/Rome': 'Italy:Rome', 'Australia/Sydney': 'Australia:Sydney',
-        'Asia/Singapore': 'Singapore:Singapore', 'UTC': 'UTC:UTC',
-      }
-      const base = lang === 'ja' ? (jpMap[z] || displayNameForZone(z)) : (enMap[z] || displayNameForZone(z))
-      const off = formatOffsetHM(getOffsetMinutesNow(z))
-      return `${base} (${off})`
-    } catch { return z }
+    const base = formatTimeZoneLabel(z, lang)
+    const off = formatOffsetHM(getOffsetMinutesNow(z))
+    return `${base} (${off})`
   }
 
   const labelTZName = (z: string): string => {
-    try {
-      const jpMap: Record<string,string> = {
-        'Asia/Tokyo': '日本:東京', 'Asia/Seoul': '韓国:ソウル', 'Europe/Amsterdam': 'オランダ:アムステルダム',
-        'Africa/Windhoek': 'ナミビア:ウィントフック', 'Africa/Nairobi': 'ケニア:ナイロビ', 'America/New_York': '米国:ニューヨーク',
-        'America/Los_Angeles': '米国:ロサンゼルス', 'Pacific/Honolulu': '米国:ホノルル', 'Europe/Copenhagen': 'デンマーク:コペンハーゲン',
-        'Europe/London': '英国:ロンドン', 'Europe/Berlin': 'ドイツ:ベルリン', 'Europe/Rome': 'イタリア:ローマ',
-        'Australia/Sydney': '豪州:シドニー', 'Asia/Singapore': 'シンガポール', 'UTC': 'UTC:UTC',
-      }
-      const enMap: Record<string,string> = {
-        'Asia/Tokyo': 'Japan:Tokyo', 'Asia/Seoul': 'Korea:Seoul', 'Europe/Amsterdam': 'Netherlands:Amsterdam',
-        'Africa/Windhoek': 'Namibia:Windhoek', 'Africa/Nairobi': 'Kenya:Nairobi', 'America/New_York': 'USA:New York',
-        'America/Los_Angeles': 'USA:Los Angeles', 'Pacific/Honolulu': 'USA:Honolulu', 'Europe/Copenhagen': 'Denmark:Copenhagen',
-        'Europe/London': 'UK:London', 'Europe/Berlin': 'Germany:Berlin', 'Europe/Rome': 'Italy:Rome', 'Australia/Sydney': 'Australia:Sydney',
-        'Asia/Singapore': 'Singapore:Singapore', 'UTC': 'UTC:UTC',
-      }
-      return lang === 'ja' ? (jpMap[z] || displayNameForZone(z)) : (enMap[z] || displayNameForZone(z))
-    } catch { return z }
+    const label = formatTimeZoneLabel(z, lang)
+    if (label === z) {
+      return displayNameForZone(z)
+    }
+    return label
   }
 
   const labelTZOff = (z: string): string => {

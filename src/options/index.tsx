@@ -1,6 +1,7 @@
 import { h, render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
-import { tWithLang, getOptionsHelpSections, OptionHelpIcon, OptionHelpAction } from '../content/utils/i18n'
+import { tWithLang, getOptionsHelpSections, OptionHelpIcon, OptionHelpAction, type Lang } from '../content/utils/i18n'
+import { formatTimeZoneLabel, isDisplayableZone } from '../content/utils/timezoneLabel'
 import { setString, Keys } from '../content/store/local'
 
 type State = {
@@ -46,8 +47,13 @@ function App() {
       chrome.storage?.local?.get(['debug:all','lang','tz:enabled','debug:copyFullN'], (res) => {
         const normalize = (v: any) => v === true || v === '1' || v === 1
         const lang = (res?.['lang'] === 'ja' ? 'ja' : 'en') as 'en'|'ja'
+        const displayableZones = filterDisplayableZones(allZones)
         const enabledArr = Array.isArray(res?.['tz:enabled']) ? res!['tz:enabled'].filter((x: any) => typeof x === 'string') : []
-        const enabledList = enabledArr.length ? enabledArr : DEFAULT_ENABLED_TZ
+        let enabledList = enabledArr.length ? enabledArr : DEFAULT_ENABLED_TZ
+        enabledList = enabledList.filter((z) => displayableZones.includes(z))
+        if (!enabledList.length) {
+          enabledList = displayableZones.length ? displayableZones.slice(0, DEFAULT_ENABLED_TZ.length) : [...DEFAULT_ENABLED_TZ]
+        }
         const enabled = new Set<string>(enabledList)
         const defaultsSet = new Set(DEFAULT_ENABLED_TZ)
         const sameAsDefault = enabledList.length === DEFAULT_ENABLED_TZ.length && enabledList.every(z => defaultsSet.has(z))
@@ -58,7 +64,7 @@ function App() {
           debugAll: normalize(res?.['debug:all']),
           lang,
           tzEnabled: enabled,
-          allZones,
+          allZones: displayableZones,
           useDefaults: sameAsDefault,
           debugCopyFullN: copyFullN,
         }))
@@ -83,7 +89,10 @@ function App() {
       'lang': state.lang,
       'tz:enabled': enabledList,
       'debug:copyFullN': state.debugCopyFullN
-    }, () => { flash(tWithLang(state.lang, 'options.saved')) })
+    }, () => {
+      flash(tWithLang(state.lang, 'options.saved'))
+      notifyTzUpdated()
+    })
   }
 
   function onReset() {
@@ -97,7 +106,14 @@ function App() {
       'debug:all': false,
       'lang': 'en',
       'tz:enabled': DEFAULT_ENABLED_TZ
-    }, () => { flash(tWithLang(state.lang, 'options.reset_done')) })
+    }, () => {
+      flash(tWithLang(state.lang, 'options.reset_done'))
+      notifyTzUpdated()
+    })
+  }
+
+  function notifyTzUpdated() {
+    try { chrome.runtime?.sendMessage?.({ type: 'OPTIONS_TZ_UPDATED' }) } catch {}
   }
 
   function flash(msg: string) {
@@ -105,7 +121,7 @@ function App() {
     setTimeout(() => setStatus(''), 1500)
   }
 
-  const visiblePool = state.showAll ? state.allZones : RECOMMENDED_TZ
+  const visiblePool = state.showAll ? state.allZones : RECOMMENDED_TZ.filter(isDisplayableZone)
   const filterText = state.filter.trim().toLowerCase()
   const filtered = (filterText
     ? visiblePool.filter(z => z.toLowerCase().includes(filterText))
@@ -121,6 +137,7 @@ function App() {
 
 
   const helpSections = getOptionsHelpSections(state.lang)
+  const langForLabels = state.lang as Lang
 
   const renderIcon = (icon: OptionHelpIcon) => {
     const commonProps = {
@@ -312,7 +329,10 @@ function App() {
                   })
                 }}
               />
-              <span>{z}</span>
+              <div class="tz-text">
+                <span class="tz-label">{formatTimeZoneLabel(z, langForLabels)}</span>
+                <span class="tz-code">{z}</span>
+              </div>
             </label>
           ))}
         </div>
@@ -369,6 +389,13 @@ const COMMON_TZ = [
   'America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Toronto','America/Vancouver','America/Mexico_City','America/Sao_Paulo','America/Bogota','America/Lima','America/Argentina/Buenos_Aires',
   'Pacific/Honolulu','Pacific/Auckland','Australia/Sydney','Australia/Perth'
 ]
+
+function filterDisplayableZones(zones: string[]): string[] {
+  const uniq = Array.from(new Set(zones))
+  const filtered = uniq.filter((z) => isDisplayableZone(z))
+  if (filtered.length) return filtered
+  return DEFAULT_ENABLED_TZ.slice()
+}
 
 
 render(h(App, {}), document.getElementById('root')!)
