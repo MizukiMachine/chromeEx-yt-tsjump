@@ -1,5 +1,25 @@
-type Lang = 'en' | 'ja'
+export type Lang = 'en' | 'ja'
 import { getString, Keys } from '../store/local'
+
+export type OptionHelpIcon = 'focus' | 'keyboard' | 'shortcuts' | 'live' | 'refresh' | 'edit' | 'debug'
+
+export interface OptionHelpAction {
+  label: string
+  href: string
+}
+
+export interface OptionHelpItem {
+  icon: OptionHelpIcon
+  title: string
+  description: string
+  shortcut?: string
+  action?: OptionHelpAction
+}
+
+export interface OptionHelpSection {
+  category: string
+  items: OptionHelpItem[]
+}
 
 interface I18nDict {
   // Main UI
@@ -75,9 +95,10 @@ interface I18nDict {
     err_select_one: string
     err_must_remain: string
     help_title: string
-    help_text: string
+    help_sections: OptionHelpSection[]
     debug_copy_full: string
     debug_copy_full_ph: string
+    settings_heading: string
   }
 }
 
@@ -131,7 +152,7 @@ const dict: Record<Lang, I18nDict> = {
       search_ph: 'Search...',
     },
     options: {
-      header: 'Extension Options',
+      header: 'TS Jump Options',
       title: 'TS Jump on Youtube — Options',
       debug_mode: 'Enable debug mode',
       debug_desc: 'Shows debug logs and enables the debug panel shortcut.',
@@ -150,17 +171,80 @@ const dict: Record<Lang, I18nDict> = {
       err_select_one: 'Select at least one time zone',
       err_must_remain: 'At least one time zone must remain selected',
       help_title: 'Help & Tips',
-      help_text: [
-        '• Toggle Jump panel: Alt+Shift+J',
-        '• Toggle Debug panel: Alt+Shift+L (debug mode)',
-        '• Customize shortcuts: chrome://extensions/shortcuts',
-        '• For best accuracy, move to the live edge when possible.',
-        '• If timestamp jump accuracy gets significantly off, please reload the page.',
-        '• Press Esc while the time input is focused to remove focus.',
-        '• Edit custom buttons: click the ✎ icon on the card.'
-      ].join('\n'),
+      help_sections: [
+        {
+          category: 'Keyboard control',
+          items: [
+            {
+              icon: 'focus',
+              title: 'Exit time input instantly',
+              description: 'Press Esc while the timestamp field is focused to return control to the page.',
+              shortcut: 'Esc',
+            },
+            {
+              icon: 'keyboard',
+              title: 'Toggle Jump panel',
+              description: 'Open or close the Jump panel from anywhere on the player.',
+              shortcut: 'Alt+Shift+J',
+            },
+          ],
+        },
+        {
+          category: 'Keyboard control',
+          items: [
+            {
+              icon: 'focus',
+              title: 'Exit time input instantly',
+              description: 'Press Esc while the timestamp field is focused to return control to the page.',
+              shortcut: 'Esc',
+            },
+            {
+              icon: 'keyboard',
+              title: 'Toggle Jump panel',
+              description: 'Open or close the Jump panel from anywhere on the player.',
+              shortcut: 'Alt+Shift+J',
+            },
+            {
+              icon: 'shortcuts',
+              title: 'Remap shortcuts',
+              description: 'Chrome lets you assign your own keys on the extensions shortcuts page.',
+              action: {
+                label: 'Open shortcut settings',
+                href: 'chrome://extensions/shortcuts',
+              },
+            },
+          ],
+        },
+        {
+          category: 'Custom skip buttons',
+          items: [
+            {
+              icon: 'edit',
+              title: 'Edit custom buttons',
+              description: 'Use the ✎ icon on the card to rename buttons or adjust skip intervals.',
+            },
+          ],
+        },
+        {
+          category: 'Accuracy & diagnostics',
+          items: [
+            {
+              icon: 'refresh',
+              title: 'Reload if timestamps drift',
+              description: 'If timestamp jump accuracy drifts significantly, please reload the page.',
+            },
+            {
+              icon: 'debug',
+              title: 'Toggle the debug panel when needed',
+              description: 'Inspect seek ranges, calibration state, and recent events with the debug panel.',
+              shortcut: 'Alt+Shift+L',
+            },
+          ],
+        },
+      ],
       debug_copy_full: 'Copy Full: recent events count',
       debug_copy_full_ph: '50 (1–200)',
+      settings_heading: 'Settings',
     },
   },
   ja: {
@@ -212,7 +296,7 @@ const dict: Record<Lang, I18nDict> = {
       search_ph: '検索…',
     },
     options: {
-      header: '拡張機能オプション',
+      header: 'TS Jump オプション',
       title: 'TS Jump on Youtube — オプション',
       debug_mode: 'デバッグモードを有効にする',
       debug_desc: 'ログにデバッグ情報を表示し、ショートカットでデバッグパネルを開けるようになります。',
@@ -231,19 +315,96 @@ const dict: Record<Lang, I18nDict> = {
       err_select_one: '最低1件は選択してください',
       err_must_remain: '最低1件は選択されたままにしてください',
       help_title: 'ヘルプ＆Tips',
-      help_text: [
-        '・ 操作パネルの表示/非表示: Alt+Shift+J',
-        '・ デバッグパネルの表示/非表示: Alt+Shift+L（デバッグモード時）',
-        '・ ショートカットの変更: chrome://extensions/shortcuts',
-        '・ 精度を高めるには可能ならライブ端に寄せてください。',
-        '・ 時刻ジャンプの精度が大きくずれたら、ページを再読み込みしてください。',
-        '・ 時刻入力にフォーカスがあるときは Esc キーでフォーカスを解除できます。',
-        '・ カスタムボタンを編集: カードの ✎ アイコンをクリック。'
-      ].join('\n'),
+      help_sections: [
+        {
+          category: 'キーボード操作',
+          items: [
+            {
+              icon: 'focus',
+              title: '時刻入力のフォーカス解除',
+              description: '時刻入力欄にフォーカスがあるときは Esc キーで素早く解除できます。',
+              shortcut: 'Esc',
+            },
+            {
+              icon: 'keyboard',
+              title: 'Jump パネルの開閉',
+              description: 'Alt+Shift+J でプレイヤー上の Jump パネルをどこからでも開閉できます。',
+              shortcut: 'Alt+Shift+J',
+            },
+            {
+              icon: 'shortcuts',
+              title: 'ショートカットの割り当て変更',
+              description: 'Chrome の拡張機能ショートカット設定ページで好みのキーに変更できます。',
+              action: {
+                label: 'ショートカット設定を開く',
+                href: 'chrome://extensions/shortcuts',
+              },
+            },
+          ],
+        },
+        {
+          category: 'カスタムSkipボタン',
+          items: [
+            {
+              icon: 'edit',
+              title: 'カスタムボタンの編集',
+              description: 'カード内の ✎ アイコンからラベルや移動秒数を編集できます。',
+            },
+          ],
+        },
+        {
+          category: '精度と診断',
+          items: [
+            {
+              icon: 'refresh',
+              title: 'ズレが大きいときは再読み込み',
+              description: '時刻ジャンプが大きくズレだした場合はページを再読み込みしてください。',
+            },
+            {
+              icon: 'debug',
+              title: '必要に応じてデバッグパネル表示',
+              description: 'シーク範囲やキャリブレーションの状態、最近のイベントを確認できます（デバッグモード時）。',
+              shortcut: 'Alt+Shift+L',
+            },
+          ],
+        },
+      ],
       debug_copy_full: 'Copy Full の件数（直近イベント）',
       debug_copy_full_ph: '50（1〜200）',
+      settings_heading: '設定',
     },
   },
+}
+
+export function t(key: string, ...args: string[]): string {
+  return tWithLang(getLang(), key, ...args)
+}
+
+function translateFromDict(language: Lang, key: string, args: string[]): string {
+  const d = dict[language]
+
+  const keys = key.split('.')
+  if (keys.length === 2) {
+    const [category, subkey] = keys
+    const categoryData = (d as any)[category]
+    if (categoryData && categoryData[subkey]) {
+      let result = categoryData[subkey]
+      args.forEach((arg, index) => {
+        result = result.replace(`{${index}}`, arg)
+      })
+      return result
+    }
+  }
+
+  let result = (d as any)[key] ?? key
+  args.forEach((arg, index) => {
+    result = result.replace(`{${index}}`, arg)
+  })
+  return result
+}
+
+export function tWithLang(lang: Lang, key: string, ...args: string[]): string {
+  return translateFromDict(lang, key, args)
 }
 
 export function getLang(): Lang {
@@ -253,31 +414,9 @@ export function getLang(): Lang {
   } catch { return 'en' }
 }
 
-export function t(key: string, ...args: string[]): string {
-  const lang = getLang()
-  const d = dict[lang]
-  
-  // Support nested keys like 'ui.jump_header' or 'tooltip.help'
-  const keys = key.split('.')
-  if (keys.length === 2) {
-    const [category, subkey] = keys
-    const categoryData = (d as any)[category]
-    if (categoryData && categoryData[subkey]) {
-      let result = categoryData[subkey]
-      // Replace {0}, {1}, etc. with provided arguments
-      args.forEach((arg, index) => {
-        result = result.replace(`{${index}}`, arg)
-      })
-      return result
-    }
-  }
-  
-  // Fallback to old format for backwards compatibility
-  let result = (d as any)[key] ?? key
-  args.forEach((arg, index) => {
-    result = result.replace(`{${index}}`, arg)
-  })
-  return result
+export function getOptionsHelpSections(langOverride?: Lang): OptionHelpSection[] {
+  const lang = langOverride ?? getLang()
+  return dict[lang].options.help_sections
 }
 
 // Helper functions for common usage patterns

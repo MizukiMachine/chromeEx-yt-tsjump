@@ -1,6 +1,6 @@
 import { h, render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
-import { t } from '../content/utils/i18n'
+import { tWithLang, getOptionsHelpSections, OptionHelpIcon, OptionHelpAction } from '../content/utils/i18n'
 import { setString, Keys } from '../content/store/local'
 
 type State = {
@@ -70,20 +70,20 @@ function App() {
   useEffect(() => {
     try {
       const h1 = document.querySelector('header h1')
-      if (h1) h1.textContent = t('options.header')
-      document.title = t('options.title')
+      if (h1) h1.textContent = tWithLang(state.lang, 'options.header')
+      document.title = tWithLang(state.lang, 'options.title')
     } catch {}
   }, [state.lang])
 
   function onSave() {
     const enabledList = Array.from(state.tzEnabled)
-    if (enabledList.length === 0) { flash(t('options.err_select_one')); return }
+    if (enabledList.length === 0) { flash(tWithLang(state.lang, 'options.err_select_one')); return }
     chrome.storage?.local?.set({
       'debug:all': state.debugAll,
       'lang': state.lang,
       'tz:enabled': enabledList,
       'debug:copyFullN': state.debugCopyFullN
-    }, () => { flash(t('options.saved')) })
+    }, () => { flash(tWithLang(state.lang, 'options.saved')) })
   }
 
   function onReset() {
@@ -97,7 +97,7 @@ function App() {
       'debug:all': false,
       'lang': 'en',
       'tz:enabled': DEFAULT_ENABLED_TZ
-    }, () => { flash(t('options.reset_done')) })
+    }, () => { flash(tWithLang(state.lang, 'options.reset_done')) })
   }
 
   function flash(msg: string) {
@@ -120,27 +120,129 @@ function App() {
   const visibleCount = filtered.length
 
 
+  const helpSections = getOptionsHelpSections(state.lang)
+
+  const renderIcon = (icon: OptionHelpIcon) => {
+    const commonProps = {
+      width: 20,
+      height: 20,
+      viewBox: '0 0 24 24',
+      role: 'presentation' as const,
+      'aria-hidden': 'true' as const,
+    }
+    switch (icon) {
+      case 'focus':
+        return (
+          <svg {...commonProps}>
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" d="M4 9V5h4" strokeLinecap="round" strokeLinejoin="round" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" d="M20 15v4h-4" strokeLinecap="round" strokeLinejoin="round" />
+            <rect x="7" y="7" width="10" height="10" rx="2" ry="2" fill="none" stroke="#2563eb" strokeWidth="1.6" />
+          </svg>
+        )
+      case 'keyboard':
+        return (
+          <svg {...commonProps}>
+            <rect x="3.5" y="6" width="17" height="12" rx="2" ry="2" fill="none" stroke="#2563eb" strokeWidth="1.6" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" d="M6 10h1m2 0h1m2 0h1m2 0h1m-9 3h6" strokeLinecap="round" />
+          </svg>
+        )
+      case 'shortcuts':
+        return (
+          <svg {...commonProps}>
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M6 8h4l-4 8h4" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M15 8h3m-3 4h4m-4 4h3" />
+          </svg>
+        )
+      case 'live':
+        return (
+          <svg {...commonProps}>
+            <circle cx="12" cy="12" r="8" fill="none" stroke="#2563eb" strokeWidth="1.6" />
+            <path fill="#2563eb" d="M12 9.5 15.5 12 12 14.5Z" />
+          </svg>
+        )
+      case 'refresh':
+        return (
+          <svg {...commonProps}>
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M7 7h4V3" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M17 17h-4v4" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M7.4 16.6A6 6 0 0 1 6 12a6 6 0 0 1 6-6 5.9 5.9 0 0 1 5.3 3.3" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M16.6 7.4A6 6 0 0 1 18 12a6 6 0 0 1-6 6 5.9 5.9 0 0 1-5.3-3.3" />
+          </svg>
+        )
+      case 'edit':
+        return (
+          <svg {...commonProps}>
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" d="M14.5 4.5 19.5 9.5 9 20H4v-5z" />
+          </svg>
+        )
+      case 'debug':
+        return (
+          <svg {...commonProps}>
+            <circle cx="12" cy="12" r="7" fill="none" stroke="#2563eb" strokeWidth="1.6" />
+            <circle cx="12" cy="12" r="2" fill="#2563eb" />
+            <path fill="none" stroke="#2563eb" strokeWidth="1.6" strokeLinecap="round" d="m5.5 5.5 3 3M18.5 5.5l-3 3M5.5 18.5l3-3M18.5 18.5l-3-3" />
+          </svg>
+        )
+      default:
+        return null
+    }
+  }
+
+  function handleActionClick(e: MouseEvent, action: OptionHelpAction) {
+    e.preventDefault()
+    const url = action.href
+    try {
+      if (url.startsWith('chrome://') && chrome?.tabs?.create) {
+        chrome.tabs.create({ url })
+        return
+      }
+    } catch {}
+    try { window.open(url, '_blank', 'noopener') } catch {}
+  }
+
   return (
     <div>
       {/* Help & Tips at top */}
       <div class="row" style={{ marginTop: '6px' }}>
-        <h2 style={{ margin: '8px 0' }}>{t('options.help_title')}</h2>
-        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#333' }}>
-          {t('options.help_text')}
+        <h2 style={{ margin: '8px 0' }}>{tWithLang(state.lang, 'options.help_title')}</h2>
+        <div class="help-grid">
+          {helpSections.map((section) => (
+            <section class="help-section" key={`help-${section.category}`}>
+              <h3 class="help-section-title">{section.category}</h3>
+              <div class="help-cards">
+                {section.items.map((item) => (
+                  <article class="help-card" key={`${section.category}-${item.title}`}>
+                    <div class="help-card-head">
+                      <span class="help-card-icon">{renderIcon(item.icon)}</span>
+                      <div class="help-card-heading">
+                        <span class="help-card-title">{item.title}</span>
+                        {item.shortcut ? <code class="help-card-shortcut">{item.shortcut}</code> : null}
+                      </div>
+                    </div>
+                    <p class="help-card-desc">{item.description}</p>
+                    {item.action ? (
+                      <a
+                        class="help-card-action"
+                        href={item.action.href}
+                        onClick={(event) => handleActionClick(event, item.action!)}
+                      >
+                        {item.action.label}
+                      </a>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
+      <hr style={{ border: '0', borderTop: '1px solid #ddd', margin: '16px 0' }} />
       <div class="row">
-        <label>
-          <input type="checkbox" checked={state.debugAll} onChange={(e: any) => setState(s => ({ ...s, debugAll: !!e.currentTarget.checked }))} />
-          {t('options.debug_mode')}
-        </label>
-        <div style={{ color:'#666', fontSize:'12px', marginTop:'4px' }}>
-          {t('options.debug_desc')}
-        </div>
+        <h2 style={{ margin: '0 0 12px 0' }}>{tWithLang(state.lang, 'options.settings_heading')}</h2>
       </div>
-      <div class="row">
+      <div class="settings-section">
         <label>
-          {t('options.default_language')}
+          {tWithLang(state.lang, 'options.default_language')}
           <select 
             value={state.lang} 
             onChange={(e: any) => {
@@ -149,47 +251,27 @@ function App() {
               try { setString(Keys.Lang, v) } catch {}
             }} 
             style={{ marginLeft: '8px' }}>
-            <option value="en">{t('options.lang_en')}</option>
-            <option value="ja">{t('options.lang_ja')}</option>
+            <option value="en">{tWithLang(state.lang, 'options.lang_en')}</option>
+            <option value="ja">{tWithLang(state.lang, 'options.lang_ja')}</option>
           </select>
         </label>
       </div>
-      {/* Debug copy count */}
-      <div class="row">
-        <label>
-          {t('options.debug_copy_full')}
-          <input
-            type="number"
-            min={1}
-            max={200}
-            step={1}
-            placeholder={t('options.debug_copy_full_ph')}
-            value={state.debugCopyFullN}
-            onInput={(e: any) => {
-              const v = parseInt(e.currentTarget.value, 10)
-              setState(s => ({ ...s, debugCopyFullN: Number.isFinite(v) ? Math.max(1, Math.min(200, v)) : s.debugCopyFullN }))
-            }}
-            style={{ marginLeft: '8px', width: '90px' }}
-          />
-        </label>
-      </div>
-      <div class="row">
+      <div class="settings-section">
         <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
-          <div>{t('options.tz_title')}</div>
+          <div>{tWithLang(state.lang, 'options.tz_title')}</div>
           <label style={{ display:'inline-flex', alignItems:'center', gap:'6px' }}>
             <input type="checkbox" checked={state.showAll} onChange={(e:any)=> setState(s => ({ ...s, showAll: !!e.currentTarget.checked }))} />
-            {t('options.show_all')}
+            {tWithLang(state.lang, 'options.show_all')}
           </label>
           <input 
             type="text" 
-            placeholder={t('options.filter_ph')} 
+            placeholder={tWithLang(state.lang, 'options.filter_ph')} 
             value={state.filter}
             onInput={(e:any)=> setState(s => ({ ...s, filter: e.currentTarget.value }))}
             style={{ flex:'1', minWidth:'120px', padding:'4px 6px', border:'1px solid #ccc', borderRadius:'4px' }}
           />
-          <span style={{ color:'#666', fontSize:'12px' }}>{t('options.selected_visible', String(selectedCount), String(visibleCount))}</span>
+          <span style={{ color:'#666', fontSize:'12px' }}>{tWithLang(state.lang, 'options.selected_visible', String(selectedCount), String(visibleCount))}</span>
         </div>
-        {/* Reset helper placed where bulk actions were */}
         <label style={{ display:'inline-flex', alignItems:'center', gap:'6px', margin: '0 0 6px 0' }}>
           <input 
             type="checkbox" 
@@ -203,39 +285,68 @@ function App() {
               }))
             }}
           />
-          {t('options.defaults_label', String(DEFAULT_ENABLED_TZ.length))}
+          {tWithLang(state.lang, 'options.defaults_label', String(DEFAULT_ENABLED_TZ.length))}
         </label>
-        <div style={{ maxHeight: '260px', overflow: 'auto', border: '1px solid #ccc', padding: '8px', borderRadius: '6px', opacity: state.useDefaults ? 0.6 : 1 }}>
+        <div class="tz-list" style={{ opacity: state.useDefaults ? 0.6 : 1 }}>
           {filtered.map(z => (
-            <label style={{ display: 'inline-flex', alignItems: 'center', width: '50%', boxSizing: 'border-box', padding: '2px 4px' }}>
-              <input 
-                type="checkbox" 
+            <label key={z} class="tz-item">
+              <input
+                type="checkbox"
                 checked={state.tzEnabled.has(z)}
                 disabled={state.useDefaults}
-                onChange={(e: any) => {
-                  setState(s => {
+                onChange={(e:any) => {
+                  const checked = !!e.currentTarget.checked
+                  setState((s) => {
+                    if (s.useDefaults) return s
                     const next = new Set(s.tzEnabled)
-                    if (e.currentTarget.checked) next.add(z)
-                    else {
+                    if (checked) {
+                      next.add(z)
+                    } else {
                       next.delete(z)
                       if (next.size === 0) {
-                        flash(t('options.err_must_remain'))
+                        flash(tWithLang(state.lang, 'options.err_must_remain'))
                         return s
                       }
                     }
                     return { ...s, tzEnabled: next }
                   })
                 }}
-                style={{ marginRight: '6px' }}
               />
-              {z}
+              <span>{z}</span>
             </label>
           ))}
         </div>
       </div>
+      <div class="settings-section">
+        <label>
+          <input type="checkbox" checked={state.debugAll} onChange={(e: any) => setState(s => ({ ...s, debugAll: !!e.currentTarget.checked }))} />
+          {tWithLang(state.lang, 'options.debug_mode')}
+        </label>
+        <div class="settings-description">
+          {tWithLang(state.lang, 'options.debug_desc')}
+        </div>
+      </div>
+      <div class="settings-section">
+        <label>
+          {tWithLang(state.lang, 'options.debug_copy_full')}
+          <input
+            type="number"
+            min={1}
+            max={200}
+            step={1}
+            placeholder={tWithLang(state.lang, 'options.debug_copy_full_ph')}
+            value={state.debugCopyFullN}
+            onInput={(e: any) => {
+              const v = parseInt(e.currentTarget.value, 10)
+              setState(s => ({ ...s, debugCopyFullN: Number.isFinite(v) ? Math.max(1, Math.min(200, v)) : s.debugCopyFullN }))
+            }}
+            style={{ marginLeft: '8px', width: '90px' }}
+          />
+        </label>
+      </div>
       <div class="actions">
-        <button onClick={onSave}>{t('options.save')}</button>
-        <button class="secondary" onClick={onReset}>{t('options.reset')}</button>
+        <button onClick={onSave}>{tWithLang(state.lang, 'options.save')}</button>
+        <button class="secondary" onClick={onReset}>{tWithLang(state.lang, 'options.reset')}</button>
       </div>
       {status && <div class="status">{status}</div>}
     </div>
