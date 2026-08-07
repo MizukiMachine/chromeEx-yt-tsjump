@@ -31,7 +31,6 @@ interface HybridState {
   video: HTMLVideoElement | null; // 対象video要素
   config: HybridCalibConfig;   // 設定
   cleanups: Array<() => void>; // イベントクリーンアップ
-  lastNudgeAt: number;         // 直近のnudge時刻(ms)
   // ---- D_fallback（短期・限定用途） ----
   dfallback: number | null;    // 暫定D（幅とPLLのみで使用、ジャンプ式やC再生成には使わない）
   dfallbackUntil: number;      // 有効期限（ms）
@@ -53,7 +52,6 @@ let state: HybridState = {
   video: null,
   config: { ...DEFAULT_HYBRID_CONFIG },
   cleanups: [],
-  lastNudgeAt: 0,
   dfallback: null,
   dfallbackUntil: 0,
   leadSamples: [],
@@ -362,8 +360,7 @@ export function startCalibration(): void {
         debugLog('pll-started');
         try { console.log('[HybridCalib] pll-started'); } catch {}
       } else {
-        // 端に近い場合は軽く端へ寄せてから再試行させる
-        try { nudgeToLiveEdge(state.video!); } catch {}
+        debugLog('edge-snap-pending', { reason: 'waiting-for-natural-edge' });
       }
     }
   }, 1000); // 1秒間隔で右端監視
@@ -371,48 +368,6 @@ export function startCalibration(): void {
   addTimerToList(state.timers, edgeMonitorId);
   debugLog('monitoring-started');
   try { console.log('[HybridCalib] monitoring-started'); } catch {}
-}
-
-/**
- * 右端へ軽く寄せる（近いときだけ実施、過剰に繰り返さない）
- */
-function nudgeToLiveEdge(video: HTMLVideoElement): void {
-  // ロック中はスキップ
-  if (state.locked) { debugLog('nudge-skip', { reason: 'locked' }); return; }
-  const nowMs = Date.now();
-  if (nowMs - state.lastNudgeAt < 5000) { debugLog('nudge-skip', { reason: 'cooldown' }); return; }
-
-  // メディアの準備状況を確認（HAVE_FUTURE_DATA 以上）
-  try {
-    if ((video as any).readyState != null && (video as any).readyState < 3) {
-      debugLog('nudge-skip', { reason: 'not-ready', readyState: (video as any).readyState });
-      return;
-    }
-  } catch {}
-
-  // 近接しているか（buffered基準で判定する）
-  const cur = video.currentTime;
-  const be = getBufferedEnd(video);
-  if (!Number.isFinite(cur) || !Number.isFinite(be)) { debugLog('nudge-skip', { reason: 'invalid-ends', cur, be }); return; }
-
-  // lag（= bufferedEnd − currentTime）が小さいほど端に近い
-  const lagToBuffered = (be as number) - cur;
-  // 最大許容距離（厳しめに 30s、設定値がそれ以下なら 30 を優先。上限は 45s を目安）
-  const maxLag = Math.min(45, Math.max(30, state.config.nearLiveSlackSec));
-  if (lagToBuffered <= 0 || lagToBuffered > maxLag) {
-    debugLog('nudge-skip', { reason: 'not-near-buffered', lagToBuffered, maxLag });
-    return;
-  }
-
-  // 軽く端へ寄せる：bufferedEnd の直前に狙ってシーク（isAtEdge判定に入りやすくする）
-  try {
-    const start = getSeekableStart(video);
-    const target = Math.max(start, (be as number) - 0.5);
-    seek(video, target);
-    debugLog('nudge', { to: target, lagToBuffered, be, maxLag });
-    try { console.log('[HybridCalib] nudge', { to: target, lagToBuffered, be, maxLag }); } catch {}
-    state.lastNudgeAt = nowMs;
-  } catch {}
 }
 
 /**
