@@ -8,11 +8,34 @@ import { logSeek } from '../events/emit';
 export const GUARD_SEC = 3;
 export const EDGE_BACKOFF_SEC = 0.75; // live edge直前での安全余白
 
+function readTestNumber(video: HTMLVideoElement, key: string): number | null {
+  if (!TEST_MODE) return null;
+  const value = video.dataset?.[key];
+  if (value == null || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function readCurrentTime(video: HTMLVideoElement): number {
+  return readTestNumber(video, 'ytTsjumpCurrentTime') ?? video.currentTime;
+}
+
+function writeCurrentTime(video: HTMLVideoElement, value: number): void {
+  if (TEST_MODE) {
+    video.dataset.ytTsjumpCurrentTime = String(value);
+    return;
+  }
+  video.currentTime = value;
+}
+
 /**
  * seekable の開始位置を返す
  * フォールバックは0
  */
 export function getSeekableStart(video: HTMLVideoElement): number {
+  const testStart = readTestNumber(video, 'ytTsjumpSeekableStart');
+  if (testStart !== null) return testStart;
+
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
@@ -35,6 +58,9 @@ export function getSeekableStart(video: HTMLVideoElement): number {
  * フォールバックは duration
  */
 export function getSeekableEnd(video: HTMLVideoElement): number {
+  const testEnd = readTestNumber(video, 'ytTsjumpSeekableEnd');
+  if (testEnd !== null) return testEnd;
+
   const r = video.seekable;
   if (r && r.length > 0) {
     try {
@@ -91,7 +117,7 @@ export interface SeekResult extends ClampResult {
 export function seek(video: HTMLVideoElement, t: number): SeekResult {
   const start = getSeekableStart(video);
   const end = getSeekableEnd(video);
-  const prev = video.currentTime;
+  const prev = readCurrentTime(video);
   let cr = clampToPlayable(t, start, end, GUARD_SEC);
 
   // bufferedの終端も考慮し 安全な着地点に調整
@@ -113,10 +139,12 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
   }
   try {
     const anyVideo: any = video as any;
-    if (typeof anyVideo.fastSeek === 'function') {
+    if (TEST_MODE) {
+      writeCurrentTime(video, cr.target);
+    } else if (typeof anyVideo.fastSeek === 'function') {
       anyVideo.fastSeek(cr.target);
     } else {
-      video.currentTime = cr.target;
+      writeCurrentTime(video, cr.target);
     }
     // 端付近で停止しがちなので軽くplayを促す
     if (cr.reason === 'end') {
@@ -141,7 +169,7 @@ export function seek(video: HTMLVideoElement, t: number): SeekResult {
  */
 export function isNearLiveEdge(video: HTMLVideoElement, thresholdSec = 5): boolean {
   const end = getSeekableEnd(video);
-  return end > 0 && end - video.currentTime <= thresholdSec;
+  return end > 0 && end - readCurrentTime(video) <= thresholdSec;
 }
 
 /**
@@ -149,7 +177,7 @@ export function isNearLiveEdge(video: HTMLVideoElement, thresholdSec = 5): boole
  * 正の値=早送り、負の値=巻き戻し
  */
 export function seekBySeconds(video: HTMLVideoElement, seconds: number): SeekResult {
-  const currentTime = video.currentTime;
+  const currentTime = readCurrentTime(video);
   const targetTime = currentTime + seconds;
   return seek(video, targetTime);
 }

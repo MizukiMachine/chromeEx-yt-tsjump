@@ -26,12 +26,20 @@
     </header>
     <main>
       <div class="video-wrap">
-        <video id="v" controls preload="metadata"></video>
+        <video
+          id="v"
+          controls
+          preload="metadata"
+          data-yt-tsjump-current-time="0"
+          data-yt-tsjump-seekable-start="0"
+          data-yt-tsjump-seekable-end="500"
+          data-yt-tsjump-buffered-end="500"
+        ></video>
       </div>
       <div class="panel">
         <div class="row">
           <label>Seekable start <input id="start" type="number" step="1" value="0" /></label>
-          <label>Seekable end <input id="end" type="number" step="1" value="3600" /></label>
+          <label>Seekable end <input id="end" type="number" step="1" value="500" /></label>
           <button id="apply">Apply Range</button>
           <button id="jumpStart">Jump Start</button>
           <button id="jumpEnd">Jump End</button>
@@ -47,4 +55,3 @@
     <script src="/src/mock/index.js" type="module"></script>
   </body>
   </html>
-

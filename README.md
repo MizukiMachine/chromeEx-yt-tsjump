@@ -66,7 +66,7 @@ Q. 時刻ジャンプが少しズレる
 ### モック環境（TEST_MODE）での動作確認
 YouTubeに触らず、テスト用のモック動画ページで動かす方法です。
 
-1. ターミナルA: `npm run dev`（モックページが `http://localhost:5173/src/mock/index.html` で開ける状態に）
+1. ターミナルA: `node tests-e2e/mock-server.mjs`（モックページが `http://localhost:5173/src/mock/index.html` で開ける状態に）
 2. ターミナルB: `TEST_MODE=true npm run build`（拡張の注入先をモックに切替）
 3. `chrome://extensions` で拡張を再読み込み → モックページを開いて挙動を確認
 
@@ -76,8 +76,8 @@ YouTubeに触らず、テスト用のモック動画ページで動かす方法�
 - ウォッチ実行: `npm run test:watch`
 - E2E（任意）:
   1) 初回のみ `npx playwright install chromium`
-  2) ターミナルAで `npm run dev`、ターミナルBで `TEST_MODE=true npm run build`
-  3) `TEST_MODE=true npm run test:e2e`
+  2) `TEST_MODE=true npm run build`
+  3) `TEST_MODE=true npm run test:e2e`（モックサーバは Playwright が自動起動）
 
 ### 提出用ビルド（パッケージング）
 1. `npm run build`（`dist/` にMV3の成果物が生成されます）

@@ -17,9 +17,27 @@ try {
   v.src = URL.createObjectURL(ms);
 } catch {}
 
+// Keep the mock deterministic even without a real media file.
+function setMockCurrentTime(value) {
+  v.dataset.ytTsjumpCurrentTime = String(Number(value) || 0);
+}
+
+try {
+  Object.defineProperty(v, 'currentTime', {
+    get() { return Number(v.dataset.ytTsjumpCurrentTime) || 0; },
+    set(value) { setMockCurrentTime(value); },
+    configurable: true,
+  });
+  v.fastSeek = setMockCurrentTime;
+  v.play = async () => {};
+} catch {}
+
 let s = 0; // start
-let e = 3600; // end
+let e = 500; // end
 function patchSeekable() {
+  v.dataset.ytTsjumpSeekableStart = String(s);
+  v.dataset.ytTsjumpSeekableEnd = String(e);
+  v.dataset.ytTsjumpBufferedEnd = String(e);
   try {
     Object.defineProperty(v, 'seekable', {
       get() { return makeTimeRanges(s, e); },
@@ -78,4 +96,3 @@ window.__mock = {
   setRange(start, end) { s = start; e = end; patchSeekable(); },
   setAd(active) { (active ? adOnBtn : adOffBtn).click(); },
 };
-
