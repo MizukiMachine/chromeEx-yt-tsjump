@@ -8,6 +8,13 @@ export const now = (): number => Date.now() / 1000;
 /** bufferedEndを安全に取得 */
 export function getBufferedEnd(video: HTMLVideoElement): number {
   try {
+    if (TEST_MODE) {
+      const attrValue = video.dataset?.ytTsjumpBufferedEnd;
+      if (attrValue != null && attrValue !== '') {
+        const parsed = Number(attrValue);
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
     const buffered = video.buffered;
     if (buffered && buffered.length > 0) {
       const end = buffered.end(buffered.length - 1);
@@ -23,10 +30,11 @@ export function getBufferedEnd(video: HTMLVideoElement): number {
 export function isAtEdge(video: HTMLVideoElement, bufSlackSec: number = 2): boolean {
   try {
     const bufferedEnd = getBufferedEnd(video);
-    const currentTime = video.currentTime;
+    const currentTime = TEST_MODE
+      ? Number(video.dataset?.ytTsjumpCurrentTime ?? video.currentTime)
+      : video.currentTime;
     return Number.isFinite(bufferedEnd) && Number.isFinite(currentTime) && (bufferedEnd - currentTime) <= bufSlackSec;
   } catch {
     return false;
   }
 }
-

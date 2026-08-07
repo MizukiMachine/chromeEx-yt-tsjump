@@ -91,12 +91,15 @@ export function jumpToLocalTimeHybrid(
 
   // ハイブリッドCがあればそれを使い、無ければセッション内の暫定Csnapを使う
   // さらにテスト用途として cOverride を優先的に使用可能にする
-  let Csnap = Number.isFinite(opts.cOverride as any) ? (opts.cOverride as number) : getHybridC();
+  const hasCOverride = Number.isFinite(opts.cOverride as any);
+  let Csnap = hasCOverride ? (opts.cOverride as number) : getHybridC();
   if (!Number.isFinite(Csnap as any) && Number.isFinite(fallbackCsnap as any)) {
     Csnap = fallbackCsnap as number;
   }
   // 通常の候補選択（折り畳みや日付固定は行わない）
-  let targetEpoch = resolveEpochFromCandidates(epochCandidates, Csnap ?? undefined);
+  let targetEpoch = hasCOverride
+    ? resolveEpochFromCandidatesForVideo(epochCandidates, Csnap as number, _video)
+    : resolveEpochFromCandidates(epochCandidates, Csnap ?? undefined);
   if (targetEpoch === null) {
     // まだCが無い場合などは、まずEdge-Snapを試みる
     try {
@@ -215,7 +218,7 @@ export function jumpToLocalTimeHybrid(
       try { bufEnd = r.end(r.length - 1); } catch {}
     }
     const futureLeadSec = (Number.isFinite(seekEnd) && Number.isFinite(bufEnd)) ? (seekEnd - bufEnd) : 0;
-    const needForceFallback = Number.isFinite(CsnapForJump as any) && st.D === 0 && futureLeadSec > 120;
+    const needForceFallback = !hasCOverride && Number.isFinite(CsnapForJump as any) && st.D === 0 && futureLeadSec > 120;
     if (needForceFallback) {
       const L = getHybridConfig()?.latencySec ?? 20;
       const endEff = effectiveEndForJump(_video);
@@ -228,7 +231,7 @@ export function jumpToLocalTimeHybrid(
     }
   } catch {}
 
-  const resultFromJump = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined);
+  const resultFromJump = jumpToEpoch(targetEpoch, CsnapForJump ?? undefined, _video);
   if (!resultFromJump) {
     return { ok: false, decision: 'parse-error', reason: 'jump execution failed' };
   }
@@ -266,6 +269,26 @@ export function jumpToLocalTimeHybrid(
 }
 
 function safeGetLocal(key: string): string | null { return getString(key); }
+
+function resolveEpochFromCandidatesForVideo(
+  epochCandidates: number[],
+  Csnap: number,
+  video: HTMLVideoElement
+): number | null {
+  if (epochCandidates.length === 0 || !Number.isFinite(Csnap)) return null;
+  const start = getSeekableStart(video);
+  const end = getSeekableEnd(video);
+  const endGuard = Math.max(start, end - GUARD_SEC);
+  const distToRange = (epoch: number): number => {
+    const t = epoch - Csnap;
+    if (t < start) return start - t;
+    if (t > endGuard) return t - endGuard;
+    return 0;
+  };
+  return epochCandidates.reduce((prev, curr) => (
+    distToRange(curr) < distToRange(prev) ? curr : prev
+  ));
+}
 
 function shiftYMD(d: YMD, deltaDays: number): YMD {
   try {

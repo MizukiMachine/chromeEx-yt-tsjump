@@ -428,15 +428,16 @@ export function getC(): number | null {
  */
 import type { SeekResult } from './seek';
 
-export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): SeekResult | null {
-  if (!state.video) {
+export function jumpToEpoch(targetEpoch: number, CsnapArg?: number, videoArg?: HTMLVideoElement): SeekResult | null {
+  const video = videoArg ?? state.video;
+  if (!video) {
     debugLog('jump-error', { reason: 'no-video' });
     return null;
   }
 
   // 初回実行時、CもCsnapArgも無い場合のみEdge-Snapを試行
   if (!Number.isFinite(state.C) && !Number.isFinite(CsnapArg as any)) {
-    if (!executeEdgeSnap(state.video)) {
+    if (!executeEdgeSnap(video)) {
       debugLog('jump-error', { reason: 'not-calibrated-and-not-at-edge' });
       return null;
     }
@@ -464,7 +465,7 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number): SeekResult 
   // シーク実行
   try {
     // 統一クランプ・安全処理で実行
-    const result = seek(state.video, t);
+    const result = seek(video, t);
 
     // ロック解除タイマー
     const unlockId = window.setTimeout(() => {
