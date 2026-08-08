@@ -8,6 +8,7 @@ import { pickFrame, updateStatus, clearTab } from './route';
 
 // キーボードショートカットのコマンドを監視
 chrome.commands.onCommand.addListener(async (command) => {
+  console.warn('[TSJ:AUDIT]', 'background-command-received', { command, ts: new Date().toISOString() });
   console.log('[Background] Command received:', command);
 
   try {

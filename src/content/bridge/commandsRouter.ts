@@ -1,5 +1,6 @@
 import { onCommandMessage } from '../bridge/runtime'
 import { handleSeekCommand, type SeekCommand } from '../handlers/commands'
+import { auditEvent } from '../debug/seekAudit'
 
 export function setupCommandRouting(
   getVideo: () => HTMLVideoElement | null,
@@ -7,9 +8,11 @@ export function setupCommandRouting(
   log: (kind: string, data?: unknown) => void
 ): () => void {
   return onCommandMessage(async (command) => {
-    log('status', { status: 'command', command });
-    if (isTyping()) return;
+    const typing = isTyping();
     const video = getVideo();
+    auditEvent('command-received', { command, typing, hasVideo: !!video }, 'warn');
+    log('status', { status: 'command', command });
+    if (typing) return;
     if (!video) return;
     if (isSeekCommand(command)) {
       handleSeekCommand(video, command);
@@ -25,4 +28,3 @@ function isSeekCommand(cmd: string): cmd is SeekCommand {
     cmd === 'seek-forward-10'
   );
 }
-

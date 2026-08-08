@@ -21,6 +21,7 @@ import { ensureJumpButton } from './ui/jumpButton';
 import { setupURLObserver } from './services/urlWatcher';
 import { setupCommandRouting } from './bridge/commandsRouter';
 import { loadOptionsFromStorage } from './services/options';
+import { auditEvent, startSeekAudit } from './debug/seekAudit';
 
 function frameTag(): string {
   try {
@@ -31,6 +32,7 @@ function frameTag(): string {
 }
 
 console.log(`[Content:${frameTag()}] TS Jump on Youtube loaded`);
+auditEvent('content-loaded', { frame: frameTag() });
 
 // 初期化フラグ（重複実行防止）
 let isInitialized = false;
@@ -60,6 +62,7 @@ function initialize() {
   
   // 動画要素の出現と差し替えを監視
   setupVideoObserver();
+  startSeekAudit(() => currentVideo ?? (document.querySelector('video') as HTMLVideoElement | null));
   
   // バックグラウンドからのメッセージを受信
   setupMessageListener();

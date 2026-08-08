@@ -27,7 +27,7 @@ export function handleSeekCommand(video: HTMLVideoElement, command: SeekCommand)
   };
 
   const delta = deltas[command];
-  const result = seekBySeconds(video, delta);
+  const result = seekBySeconds(video, delta, `command:${command}`);
 
   // クランプが発生した場合はトースト通知
   if (result.clamped) {

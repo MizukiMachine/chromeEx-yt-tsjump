@@ -420,7 +420,7 @@ export function jumpToEpoch(targetEpoch: number, CsnapArg?: number, videoArg?: H
   // シーク実行
   try {
     // 統一クランプ・安全処理で実行
-    const result = seek(video, t);
+    const result = seek(video, t, 'jump:hybrid');
 
     // ロック解除タイマー
     const unlockId = window.setTimeout(() => {

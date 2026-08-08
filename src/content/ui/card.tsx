@@ -368,7 +368,7 @@ export function mountCard(sr: ShadowRoot, getVideo: GetVideo): CardAPI {
           return
         }
         
-        const result = seekBySeconds(v, button.seconds)
+        const result = seekBySeconds(v, button.seconds, `custom-button:${button.label}`)
         
         // クランプが発生した場合はトースト通知
         if (result.clamped) {

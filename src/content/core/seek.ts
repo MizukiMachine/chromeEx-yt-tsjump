@@ -1,4 +1,5 @@
 import { logSeek } from '../events/emit';
+import { auditSeekIntent } from '../debug/seekAudit';
 
 /**
  * シーク基盤とガード
@@ -114,11 +115,19 @@ export interface SeekResult extends ClampResult {
 /**
  * シークを実行 クランプを適用してからcurrentTimeを更新
  */
-export function seek(video: HTMLVideoElement, t: number): SeekResult {
+export function seek(video: HTMLVideoElement, t: number, source: string = 'seek'): SeekResult {
   const start = getSeekableStart(video);
   const end = getSeekableEnd(video);
   const prev = readCurrentTime(video);
   let cr = clampToPlayable(t, start, end, GUARD_SEC);
+  auditSeekIntent(source, video, {
+    requested: t,
+    previous: prev,
+    target: cr.target,
+    clamped: cr.clamped,
+    reason: cr.reason,
+    range: cr.range,
+  });
 
   // bufferedの終端も考慮し 安全な着地点に調整
   // 端クランプ時だけでなく target がbuffered終端より先のときも手前へずらす
@@ -176,8 +185,8 @@ export function isNearLiveEdge(video: HTMLVideoElement, thresholdSec = 5): boole
  * 指定秒数分のシーク（カスタムボタン/ショートカット共通）
  * 正の値=早送り、負の値=巻き戻し
  */
-export function seekBySeconds(video: HTMLVideoElement, seconds: number): SeekResult {
+export function seekBySeconds(video: HTMLVideoElement, seconds: number, source: string = 'seekBySeconds'): SeekResult {
   const currentTime = readCurrentTime(video);
   const targetTime = currentTime + seconds;
-  return seek(video, targetTime);
+  return seek(video, targetTime, source);
 }

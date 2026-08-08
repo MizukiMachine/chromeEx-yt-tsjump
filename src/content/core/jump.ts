@@ -144,7 +144,7 @@ export function jumpToLocalTimeHybrid(
           : epochCandidates.reduce((prev, curr) => (distToInterval(curr) < distToInterval(prev) ? curr : prev));
 
         const tTarget = picked - (fallbackCsnap as number);
-        const r = seek(v, tTarget);
+        const r = seek(v, tTarget, 'jump:fallback');
         // 範囲外→端へ移動した旨を通知（端に応じて文言を出し分け）
         if (r.clamped) {
           const key = r.reason === 'start' ? 'toast.moved_start' : 'toast.moved_current';
